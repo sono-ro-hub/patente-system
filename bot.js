@@ -13,6 +13,20 @@ const {
 const fs = require("fs");
 const config = require("./config.json");
 
+// 🌐 EXPRESS (FIX RENDER TIMEOUT)
+const express = require("express");
+const app = express();
+
+app.get("/", (req, res) => {
+  res.send("🤖 Bot Patente online");
+});
+
+// 🔥 FIX IMPORTANTE RENDER PORT BINDING
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, "0.0.0.0", () => {
+  console.log("🌐 Server attivo sulla porta " + PORT);
+});
+
 // 🤖 BOT
 const client = new Client({
   intents: [
@@ -74,7 +88,17 @@ client.on("interactionCreate", async interaction => {
   const command = client.commands.get(interaction.commandName);
   if (!command) return;
 
-  await command.execute(interaction, client, userData);
+  try {
+    await command.execute(interaction, client, userData);
+  } catch (err) {
+    console.error(err);
+    if (!interaction.replied) {
+      await interaction.reply({
+        content: "❌ Errore nel comando.",
+        ephemeral: true
+      });
+    }
+  }
 });
 
 // =========================
@@ -95,6 +119,7 @@ client.on("interactionCreate", async interaction => {
   // 📌 START PATENTE
   if (id.startsWith("req_")) {
     const type = id.split("_")[1];
+
     data.type = type;
     data.step = 1;
 
@@ -130,7 +155,7 @@ client.on("interactionCreate", async interaction => {
     return interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
   }
 
-  // 🧠 QUIZ (SEMPLICE)
+  // 🧠 QUIZ
   if (id.startsWith("quiz_")) {
     data.step = 2;
     data.score = 3;
@@ -153,6 +178,7 @@ client.on("interactionCreate", async interaction => {
 
   // 📤 STAFF
   if (id.startsWith("send_")) {
+
     if (data.step < 3) {
       return interaction.reply({
         content: "❌ Devi completare quiz + pagamento",
@@ -161,6 +187,13 @@ client.on("interactionCreate", async interaction => {
     }
 
     const channel = interaction.guild.channels.cache.find(c => c.name === "staff-patenti");
+
+    if (!channel) {
+      return interaction.reply({
+        content: "❌ Canale staff-patenti non trovato",
+        ephemeral: true
+      });
+    }
 
     const embed = new EmbedBuilder()
       .setTitle("🚗 NUOVA RICHIESTA PATENTE")
@@ -193,18 +226,22 @@ client.on("interactionCreate", async interaction => {
   // ✅ ACCEPT
   if (id.startsWith("accept_")) {
     const idUser = id.split("_")[1];
-    const member = await interaction.guild.members.fetch(idUser);
 
-    const role = interaction.guild.roles.cache.get(config.patenteRoleId);
+    try {
+      const member = await interaction.guild.members.fetch(idUser);
+      const role = interaction.guild.roles.cache.get(config.patenteRoleId);
 
-    if (role) await member.roles.add(role);
+      if (role) await member.roles.add(role);
 
-    userData.delete(idUser);
+      userData.delete(idUser);
 
-    return interaction.update({
-      content: "✅ Patente APPROVATA",
-      components: []
-    });
+      return interaction.update({
+        content: "✅ Patente APPROVATA",
+        components: []
+      });
+    } catch (err) {
+      console.error(err);
+    }
   }
 
   // ❌ REJECT
@@ -235,6 +272,8 @@ client.on("messageCreate", async message => {
   const file = message.attachments.first();
 
   const channel = message.guild.channels.cache.find(c => c.name === "staff-patenti");
+
+  if (!channel) return;
 
   await channel.send({
     content: `💳 PAGAMENTO da <@${userId}> (${data.type})`,
