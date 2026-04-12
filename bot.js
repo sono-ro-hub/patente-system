@@ -9,8 +9,25 @@ const {
 } = require("discord.js");
 
 const fs = require("fs");
+const express = require("express"); // 🔥 FIX 1
 
 const config = require("./config.json");
+
+// ======================
+// 🌐 EXPRESS KEEP ALIVE (FIX RENDER TIMEOUT)
+// ======================
+const app = express();
+
+app.get("/", (req, res) => {
+  res.status(200).send("🤖 Bot Patente online");
+});
+
+// 🔥 IMPORTANTE: bind su 0.0.0.0
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log("🌐 Server attivo sulla porta " + PORT);
+});
 
 // 🤖 BOT
 const client = new Client({
@@ -27,44 +44,34 @@ for (const file of commandFiles) {
   client.commands.set(command.data.name, command);
 }
 
-// 🧠 STATO UTENTI (anti-fake + quiz)
+// 🧠 STATO UTENTI
 const userData = new Map();
 
-// 🌐 READY
-client.once("clientReady", () => {
+// 🌐 READY (FIX EVENT CORRETTO)
+client.once("ready", () => {
   console.log(`🤖 Bot Patente online: ${client.user.tag}`);
 });
 
 // 🎮 INTERACTIONS
 client.on("interactionCreate", async interaction => {
 
-  // ======================
-  // SLASH COMMANDS
-  // ======================
   if (interaction.isChatInputCommand()) {
     const command = client.commands.get(interaction.commandName);
     if (!command) return;
     await command.execute(interaction, client, userData);
   }
 
-  // ======================
-  // BUTTON SYSTEM
-  // ======================
   if (!interaction.isButton()) return;
 
   const id = interaction.customId;
   const userId = interaction.user.id;
 
-  // 🚨 ANTI FAKE (1 richiesta sola)
   if (!userData.has(userId)) {
     userData.set(userId, { step: 0, score: 0 });
   }
 
   const data = userData.get(userId);
 
-  // ======================
-  // RICHIESTA PATENTE
-  // ======================
   if (id.startsWith("req_")) {
 
     const type = id.split("_")[1];
@@ -111,13 +118,9 @@ client.on("interactionCreate", async interaction => {
     return interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
   }
 
-  // ======================
-  // QUIZ SEMPLIFICATO
-  // ======================
   if (id === "start_quiz") {
-
     data.step = 2;
-    data.score = 3; // simulazione (puoi espandere dopo)
+    data.score = 3;
 
     return interaction.reply({
       content: "🧠 Quiz completato! Punteggio: 3/3",
@@ -125,9 +128,6 @@ client.on("interactionCreate", async interaction => {
     });
   }
 
-  // ======================
-  // PAGAMENTO
-  // ======================
   if (id === "pay") {
     data.step = 3;
 
@@ -137,9 +137,6 @@ client.on("interactionCreate", async interaction => {
     });
   }
 
-  // ======================
-  // INVIO STAFF
-  // ======================
   if (id === "send_staff") {
 
     if (data.step < 3) {
@@ -181,9 +178,6 @@ client.on("interactionCreate", async interaction => {
     });
   }
 
-  // ======================
-  // STAFF PANEL
-  // ======================
   if (id.startsWith("accept_")) {
 
     const idUser = id.split("_")[1];
@@ -191,9 +185,7 @@ client.on("interactionCreate", async interaction => {
 
     const role = interaction.guild.roles.cache.get(config.patenteRoleId);
 
-    if (role) {
-      await member.roles.add(role);
-    }
+    if (role) await member.roles.add(role);
 
     userData.delete(idUser);
 
