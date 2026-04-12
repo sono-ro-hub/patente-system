@@ -9,7 +9,7 @@ const {
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("patente")
-    .setDescription("Invia menu patenti (staff only)")
+    .setDescription("📋 Menu patenti")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   async execute(interaction) {
@@ -17,38 +17,36 @@ module.exports = {
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("req_A")
-        .setLabel("🏍 Patente A")
+        .setLabel("🏍 A")
         .setStyle(ButtonStyle.Primary),
 
       new ButtonBuilder()
         .setCustomId("req_B")
-        .setLabel("🚗 Patente B")
+        .setLabel("🚗 B")
         .setStyle(ButtonStyle.Success),
 
       new ButtonBuilder()
-        .setCustomId("req_CD")
-        .setLabel("🚛 Patente C-D")
+        .setCustomId("req_C-D")
+        .setLabel("🚛 C-D")
         .setStyle(ButtonStyle.Secondary)
     );
 
-    const channel = interaction.guild.channels.cache.find(
-      c => c.name === "moduli-patente"
-    );
+    const channel = interaction.guild.channels.cache.find(c => c.name === "moduli-patente");
 
     if (!channel) {
       return interaction.reply({
-        content: "❌ Canale moduli-patente non trovato",
+        content: "❌ Canale non trovato",
         ephemeral: true
       });
     }
 
     await channel.send({
-      content: "📋 **NUOVA RICHIESTA PATENTE**\nClicca sotto per iniziare:",
+      content: "📋 Clicca per richiedere patente",
       components: [row]
     });
 
     return interaction.reply({
-      content: "✅ Menu patente inviato nel canale!",
+      content: "✅ Menu inviato",
       ephemeral: true
     });
   }
