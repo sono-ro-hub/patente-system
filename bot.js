@@ -42,7 +42,7 @@ function generatePaymentCode() {
 }
 
 // =========================
-// READY
+// READY (FIXED)
 // =========================
 client.once("ready", () => {
   console.log(`🤖 Bot Patente online: ${client.user.tag}`);
@@ -115,7 +115,11 @@ client.on("interactionCreate", async interaction => {
         .setStyle(ButtonStyle.Secondary)
     );
 
-    return interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+    return interaction.reply({
+      embeds: [embed],
+      components: [row],
+      ephemeral: true
+    });
   }
 
   // 🧠 QUIZ
