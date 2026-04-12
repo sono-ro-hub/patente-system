@@ -1,5 +1,17 @@
 const { Client, GatewayIntentBits, Collection } = require("discord.js");
 const fs = require("fs");
+const express = require("express");
+
+const app = express();
+
+app.get("/", (req, res) => {
+  res.send("🤖 Bot Patente online");
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log("🌐 Server attivo sulla porta " + PORT);
+});
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
@@ -7,7 +19,6 @@ const client = new Client({
 
 client.commands = new Collection();
 
-// carica comandi
 const commandFiles = fs.readdirSync("./commands").filter(f => f.endsWith(".js"));
 
 for (const file of commandFiles) {
