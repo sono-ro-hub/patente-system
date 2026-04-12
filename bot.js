@@ -9,15 +9,28 @@ const {
 } = require("discord.js");
 
 const fs = require("fs");
+const express = require("express");
 
-// 🤖 DISCORD CLIENT
+// 🌐 EXPRESS SERVER (OBBLIGATORIO PER RENDER WEB)
+const app = express();
+
+app.get("/", (req, res) => {
+  res.send("🤖 Bot Patente online");
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, "0.0.0.0", () => {
+  console.log("🌐 Server attivo sulla porta " + PORT);
+});
+
+// 🤖 DISCORD BOT
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
 client.commands = new Collection();
 
-// 📦 CARICA COMANDI
+// 📦 comandi
 const commandFiles = fs.readdirSync("./commands").filter(f => f.endsWith(".js"));
 
 for (const file of commandFiles) {
@@ -33,32 +46,30 @@ client.once("clientReady", () => {
 // 🎮 INTERACTIONS
 client.on("interactionCreate", async interaction => {
 
-  // SLASH COMMANDS
   if (interaction.isChatInputCommand()) {
     const command = client.commands.get(interaction.commandName);
     if (!command) return;
     await command.execute(interaction, client);
   }
 
-  // BUTTONS
   if (!interaction.isButton()) return;
 
   const id = interaction.customId;
 
-  // 📌 RICHIESTA PATENTE
+  // 📋 RICHIESTA PATENTE
   if (id.startsWith("req_")) {
     const type = id.split("_")[1];
 
     const embed = new EmbedBuilder()
       .setTitle("📋 MODULO PATENTE")
       .setDescription(
-`🏁 Patente selezionata: **${type}**
+`🏁 Patente scelta: **${type}**
 
-⚠️ REQUISITI OBBLIGATORI:
-• Compilare il quiz
-• Pagare 3.000$
-• Inviare screenshot pagamento
-• Attendere approvazione staff`
+📌 OBBLIGATORIO:
+• Compilare quiz
+• Pagare 3k
+• Inviare foto pagamento
+• Attendere staff`
       );
 
     const row = new ActionRowBuilder().addComponents(
@@ -84,7 +95,7 @@ client.on("interactionCreate", async interaction => {
   // 💳 PAGAMENTO
   if (id.startsWith("pay_")) {
     return interaction.reply({
-      content: "💳 Devi inviare lo screenshot nel canale PAGAMENTI PATENTE.",
+      content: "💳 Invia la foto pagamento nel canale PAGAMENTI PATENTE.",
       ephemeral: true
     });
   }
@@ -102,10 +113,10 @@ client.on("interactionCreate", async interaction => {
 `👤 Utente: <@${interaction.user.id}>
 📌 Tipo: ${id.split("_")[1]}
 
-⚠️ Controllare:
-• Quiz completato
-• Pagamento inviato
-• Screenshot verificato`
+⚠️ Controlli:
+• Quiz
+• Pagamento
+• Screenshot`
       );
 
     const row = new ActionRowBuilder().addComponents(
@@ -123,12 +134,12 @@ client.on("interactionCreate", async interaction => {
     await channel.send({ embeds: [embed], components: [row] });
 
     return interaction.reply({
-      content: "📤 Richiesta inviata allo staff!",
+      content: "📤 Inviato allo staff!",
       ephemeral: true
     });
   }
 
-  // ✅ APPROVA / ❌ RIFIUTA
+  // ✅ / ❌ STAFF
   if (id.startsWith("accept_")) {
     return interaction.update({
       content: "✅ Patente APPROVATA",
