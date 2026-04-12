@@ -1,18 +1,14 @@
-const { Client, GatewayIntentBits, Collection, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const {
+  Client,
+  GatewayIntentBits,
+  Collection,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle
+} = require("discord.js");
+
 const fs = require("fs");
-
-// 🌐 EXPRESS (serve SOLO per Render uptime, lo lasciamo)
-const express = require("express");
-const app = express();
-
-app.get("/", (req, res) => {
-  res.send("🤖 Bot Patente online");
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log("🌐 Server attivo sulla porta " + PORT);
-});
 
 // 🤖 DISCORD CLIENT
 const client = new Client({
@@ -29,128 +25,123 @@ for (const file of commandFiles) {
   client.commands.set(command.data.name, command);
 }
 
-// ✅ BOT ONLINE
-client.once("ready", () => {
+// ✅ READY
+client.once("clientReady", () => {
   console.log(`🤖 Bot Patente online: ${client.user.tag}`);
 });
 
-// 🎮 INTERACTION SYSTEM (COMMAND + BUTTONS)
+// 🎮 INTERACTIONS
 client.on("interactionCreate", async interaction => {
 
-  // =========================
   // SLASH COMMANDS
-  // =========================
   if (interaction.isChatInputCommand()) {
     const command = client.commands.get(interaction.commandName);
     if (!command) return;
     await command.execute(interaction, client);
   }
 
-  // =========================
-  // ROLEPLAY BUTTON SYSTEM
-  // =========================
-  if (interaction.isButton()) {
+  // BUTTONS
+  if (!interaction.isButton()) return;
 
-    const id = interaction.customId;
+  const id = interaction.customId;
 
-    // 📌 RICHIESTA PATENTE
-    if (id.startsWith("req_")) {
+  // 📌 RICHIESTA PATENTE
+  if (id.startsWith("req_")) {
+    const type = id.split("_")[1];
 
-      const type = id.split("_")[1];
+    const embed = new EmbedBuilder()
+      .setTitle("📋 MODULO PATENTE")
+      .setDescription(
+`🏁 Patente selezionata: **${type}**
 
-      const embed = new EmbedBuilder()
-        .setTitle("📋 MODULO PATENTE")
-        .setDescription(`
-🏁 Hai scelto **Patente ${type}**
-
-⚠️ OBBLIGATORIO:
-- Compilare quiz
-- Pagare 3k
-- Inviare screenshot pagamento
-- Attendere approvazione staff
-        `);
-
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId(`quiz_${type}_${interaction.user.id}`)
-          .setLabel("📋 Quiz")
-          .setStyle(ButtonStyle.Primary),
-
-        new ButtonBuilder()
-          .setCustomId(`pay_${type}_${interaction.user.id}`)
-          .setLabel("💳 Pagamento")
-          .setStyle(ButtonStyle.Success),
-
-        new ButtonBuilder()
-          .setCustomId(`send_${type}_${interaction.user.id}`)
-          .setLabel("📤 Invia allo staff")
-          .setStyle(ButtonStyle.Secondary)
+⚠️ REQUISITI OBBLIGATORI:
+• Compilare il quiz
+• Pagare 3.000$
+• Inviare screenshot pagamento
+• Attendere approvazione staff`
       );
 
-      return interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
-    }
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`quiz_${type}`)
+        .setLabel("📋 Quiz")
+        .setStyle(ButtonStyle.Primary),
 
-    // 💳 PAGAMENTO
-    if (id.startsWith("pay_")) {
-      return interaction.reply({
-        content: "💳 Invia screenshot pagamento nel canale staff.",
-        ephemeral: true
-      });
-    }
+      new ButtonBuilder()
+        .setCustomId(`pay_${type}`)
+        .setLabel("💳 Pagamento")
+        .setStyle(ButtonStyle.Success),
 
-    // 📤 INVIO STAFF
-    if (id.startsWith("send_")) {
+      new ButtonBuilder()
+        .setCustomId(`send_${type}`)
+        .setLabel("📤 Invia richiesta")
+        .setStyle(ButtonStyle.Secondary)
+    );
 
-      const staffChannel = interaction.guild.channels.cache.find(c => c.name === "staff-patenti");
+    return interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+  }
 
-      const embed = new EmbedBuilder()
-        .setTitle("🚗 NUOVA RICHIESTA PATENTE")
-        .setDescription(`
-👤 Utente: <@${interaction.user.id}>
+  // 💳 PAGAMENTO
+  if (id.startsWith("pay_")) {
+    return interaction.reply({
+      content: "💳 Devi inviare lo screenshot nel canale PAGAMENTI PATENTE.",
+      ephemeral: true
+    });
+  }
+
+  // 📤 INVIO STAFF
+  if (id.startsWith("send_")) {
+
+    const channel = interaction.guild.channels.cache.find(c =>
+      c.name === "staff-patenti"
+    );
+
+    const embed = new EmbedBuilder()
+      .setTitle("🚗 NUOVA RICHIESTA PATENTE")
+      .setDescription(
+`👤 Utente: <@${interaction.user.id}>
 📌 Tipo: ${id.split("_")[1]}
 
 ⚠️ Controllare:
-- Quiz
-- Pagamento
-- Screenshot
-        `);
-
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId(`accept_${interaction.user.id}`)
-          .setLabel("✅ Accetta")
-          .setStyle(ButtonStyle.Success),
-
-        new ButtonBuilder()
-          .setCustomId(`reject_${interaction.user.id}`)
-          .setLabel("❌ Rifiuta")
-          .setStyle(ButtonStyle.Danger)
+• Quiz completato
+• Pagamento inviato
+• Screenshot verificato`
       );
 
-      await staffChannel.send({ embeds: [embed], components: [row] });
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`accept_${interaction.user.id}`)
+        .setLabel("✅ Accetta")
+        .setStyle(ButtonStyle.Success),
 
-      return interaction.reply({
-        content: "📤 Richiesta inviata allo staff!",
-        ephemeral: true
-      });
-    }
+      new ButtonBuilder()
+        .setCustomId(`reject_${interaction.user.id}`)
+        .setLabel("❌ Rifiuta")
+        .setStyle(ButtonStyle.Danger)
+    );
 
-    // ✅ ACCETTA / ❌ RIFIUTA
-    if (id.startsWith("accept_")) {
-      return interaction.update({
-        content: "✅ Patente APPROVATA",
-        components: []
-      });
-    }
+    await channel.send({ embeds: [embed], components: [row] });
 
-    if (id.startsWith("reject_")) {
-      return interaction.update({
-        content: "❌ Patente RIFIUTATA",
-        components: []
-      });
-    }
+    return interaction.reply({
+      content: "📤 Richiesta inviata allo staff!",
+      ephemeral: true
+    });
+  }
+
+  // ✅ APPROVA / ❌ RIFIUTA
+  if (id.startsWith("accept_")) {
+    return interaction.update({
+      content: "✅ Patente APPROVATA",
+      components: []
+    });
+  }
+
+  if (id.startsWith("reject_")) {
+    return interaction.update({
+      content: "❌ Patente RIFIUTATA",
+      components: []
+    });
   }
 });
 
-// 🔑 LOGIN
 client.login(process.env.TOKEN);
