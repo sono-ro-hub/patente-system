@@ -1,38 +1,23 @@
 const {
   SlashCommandBuilder,
-  EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
-  ButtonStyle
+  ButtonStyle,
+  PermissionFlagsBits
 } = require("discord.js");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("patente")
-    .setDescription("📋 Menu patente A / B / C-D"),
+    .setDescription("Invia menu patenti (staff only)")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   async execute(interaction) {
-
-    const embed = new EmbedBuilder()
-      .setTitle("🏁 Sistema Patenti")
-      .setDescription(`
-Seleziona il tipo di patente:
-
-🏍️ Patente A
-🚗 Patente B
-🚛 Patente C-D
-
-⚠️ Obbligatorio:
-- compilare quiz
-- inviare pagamento (3k)
-- inviare foto pagamento
-- attesa approvazione staff
-      `);
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("req_A")
-        .setLabel("🏍️ Patente A")
+        .setLabel("🏍 Patente A")
         .setStyle(ButtonStyle.Primary),
 
       new ButtonBuilder()
@@ -41,14 +26,29 @@ Seleziona il tipo di patente:
         .setStyle(ButtonStyle.Success),
 
       new ButtonBuilder()
-        .setCustomId("req_C")
+        .setCustomId("req_C-D")
         .setLabel("🚛 Patente C-D")
-        .setStyle(ButtonStyle.Danger)
+        .setStyle(ButtonStyle.Secondary)
     );
 
-    await interaction.reply({
-      embeds: [embed],
-      components: [row],
+    const channel = interaction.guild.channels.cache.find(
+      c => c.name === "moduli-patente"
+    );
+
+    if (!channel) {
+      return interaction.reply({
+        content: "❌ Canale moduli-patente non trovato",
+        ephemeral: true
+      });
+    }
+
+    await channel.send({
+      content: "📋 **NUOVA RICHIESTA PATENTE**\nClicca sotto per iniziare:",
+      components: [row]
+    });
+
+    return interaction.reply({
+      content: "✅ Menu patente inviato nel canale!",
       ephemeral: true
     });
   }
