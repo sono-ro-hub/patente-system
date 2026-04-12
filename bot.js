@@ -9,28 +9,17 @@ const {
 } = require("discord.js");
 
 const fs = require("fs");
-const express = require("express");
 
-// 🌐 EXPRESS SERVER (OBBLIGATORIO PER RENDER WEB)
-const app = express();
+const config = require("./config.json");
 
-app.get("/", (req, res) => {
-  res.send("🤖 Bot Patente online");
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, "0.0.0.0", () => {
-  console.log("🌐 Server attivo sulla porta " + PORT);
-});
-
-// 🤖 DISCORD BOT
+// 🤖 BOT
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
 client.commands = new Collection();
 
-// 📦 comandi
+// 📦 LOAD COMMANDS
 const commandFiles = fs.readdirSync("./commands").filter(f => f.endsWith(".js"));
 
 for (const file of commandFiles) {
@@ -38,7 +27,10 @@ for (const file of commandFiles) {
   client.commands.set(command.data.name, command);
 }
 
-// ✅ READY
+// 🧠 STATO UTENTI (anti-fake + quiz)
+const userData = new Map();
+
+// 🌐 READY
 client.once("clientReady", () => {
   console.log(`🤖 Bot Patente online: ${client.user.tag}`);
 });
@@ -46,87 +38,137 @@ client.once("clientReady", () => {
 // 🎮 INTERACTIONS
 client.on("interactionCreate", async interaction => {
 
+  // ======================
+  // SLASH COMMANDS
+  // ======================
   if (interaction.isChatInputCommand()) {
     const command = client.commands.get(interaction.commandName);
     if (!command) return;
-    await command.execute(interaction, client);
+    await command.execute(interaction, client, userData);
   }
 
+  // ======================
+  // BUTTON SYSTEM
+  // ======================
   if (!interaction.isButton()) return;
 
   const id = interaction.customId;
+  const userId = interaction.user.id;
 
-  // 📋 RICHIESTA PATENTE
+  // 🚨 ANTI FAKE (1 richiesta sola)
+  if (!userData.has(userId)) {
+    userData.set(userId, { step: 0, score: 0 });
+  }
+
+  const data = userData.get(userId);
+
+  // ======================
+  // RICHIESTA PATENTE
+  // ======================
   if (id.startsWith("req_")) {
+
     const type = id.split("_")[1];
+
+    if (data.step > 0) {
+      return interaction.reply({
+        content: "❌ Hai già una richiesta attiva!",
+        ephemeral: true
+      });
+    }
+
+    data.step = 1;
+    data.type = type;
 
     const embed = new EmbedBuilder()
       .setTitle("📋 MODULO PATENTE")
       .setDescription(
-`🏁 Patente scelta: **${type}**
+`🏁 Patente selezionata: **${type}**
 
-📌 OBBLIGATORIO:
-• Compilare quiz
-• Pagare 3k
-• Inviare foto pagamento
-• Attendere staff`
+📌 Devi completare:
+1️⃣ Quiz
+2️⃣ Pagamento 3k
+3️⃣ Invio screenshot
+4️⃣ Staff approva`
       );
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId(`quiz_${type}`)
-        .setLabel("📋 Quiz")
+        .setCustomId("start_quiz")
+        .setLabel("🧠 Inizia Quiz")
         .setStyle(ButtonStyle.Primary),
 
       new ButtonBuilder()
-        .setCustomId(`pay_${type}`)
+        .setCustomId("pay")
         .setLabel("💳 Pagamento")
         .setStyle(ButtonStyle.Success),
 
       new ButtonBuilder()
-        .setCustomId(`send_${type}`)
-        .setLabel("📤 Invia richiesta")
+        .setCustomId("send_staff")
+        .setLabel("📤 Invia staff")
         .setStyle(ButtonStyle.Secondary)
     );
 
     return interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
   }
 
-  // 💳 PAGAMENTO
-  if (id.startsWith("pay_")) {
+  // ======================
+  // QUIZ SEMPLIFICATO
+  // ======================
+  if (id === "start_quiz") {
+
+    data.step = 2;
+    data.score = 3; // simulazione (puoi espandere dopo)
+
     return interaction.reply({
-      content: "💳 Invia la foto pagamento nel canale PAGAMENTI PATENTE.",
+      content: "🧠 Quiz completato! Punteggio: 3/3",
       ephemeral: true
     });
   }
 
-  // 📤 INVIO STAFF
-  if (id.startsWith("send_")) {
+  // ======================
+  // PAGAMENTO
+  // ======================
+  if (id === "pay") {
+    data.step = 3;
 
-    const channel = interaction.guild.channels.cache.find(c =>
-      c.name === "staff-patenti"
+    return interaction.reply({
+      content: "💳 Invia screenshot pagamento nel canale PAGAMENTI PATENTE",
+      ephemeral: true
+    });
+  }
+
+  // ======================
+  // INVIO STAFF
+  // ======================
+  if (id === "send_staff") {
+
+    if (data.step < 3) {
+      return interaction.reply({
+        content: "❌ Devi completare quiz + pagamento",
+        ephemeral: true
+      });
+    }
+
+    const channel = interaction.guild.channels.cache.find(
+      c => c.name === "staff-patenti"
     );
 
     const embed = new EmbedBuilder()
       .setTitle("🚗 NUOVA RICHIESTA PATENTE")
       .setDescription(
-`👤 Utente: <@${interaction.user.id}>
-📌 Tipo: ${id.split("_")[1]}
-
-⚠️ Controlli:
-• Quiz
-• Pagamento
-• Screenshot`
+`👤 Utente: <@${userId}>
+📌 Tipo: ${data.type}
+🧠 Score: ${data.score}/3`
       );
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId(`accept_${interaction.user.id}`)
+        .setCustomId(`accept_${userId}`)
         .setLabel("✅ Accetta")
         .setStyle(ButtonStyle.Success),
 
       new ButtonBuilder()
-        .setCustomId(`reject_${interaction.user.id}`)
+        .setCustomId(`reject_${userId}`)
         .setLabel("❌ Rifiuta")
         .setStyle(ButtonStyle.Danger)
     );
@@ -139,8 +181,22 @@ client.on("interactionCreate", async interaction => {
     });
   }
 
-  // ✅ / ❌ STAFF
+  // ======================
+  // STAFF PANEL
+  // ======================
   if (id.startsWith("accept_")) {
+
+    const idUser = id.split("_")[1];
+    const member = await interaction.guild.members.fetch(idUser);
+
+    const role = interaction.guild.roles.cache.get(config.patenteRoleId);
+
+    if (role) {
+      await member.roles.add(role);
+    }
+
+    userData.delete(idUser);
+
     return interaction.update({
       content: "✅ Patente APPROVATA",
       components: []
@@ -148,6 +204,10 @@ client.on("interactionCreate", async interaction => {
   }
 
   if (id.startsWith("reject_")) {
+
+    const idUser = id.split("_")[1];
+    userData.delete(idUser);
+
     return interaction.update({
       content: "❌ Patente RIFIUTATA",
       components: []
