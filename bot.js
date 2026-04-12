@@ -11,6 +11,12 @@ const {
 const fs = require("fs");
 const config = require("./config.json");
 
+// 🛡️ ANTI CRASH GLOBALE
+process.on("unhandledRejection", (err) => {
+  console.log("⚠️ Errore ignorato:", err);
+});
+
+// 🤖 BOT
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -28,7 +34,7 @@ const commandFiles = fs.readdirSync("./commands").filter(f => f.endsWith(".js"))
 for (const file of commandFiles) {
   const command = require(`./commands/${file}`);
   client.commands.set(command.data.name, command);
-}
+});
 
 // 🔥 CODICE PAGAMENTO GENERATOR
 function generatePaymentCode() {
@@ -38,7 +44,7 @@ function generatePaymentCode() {
 // =========================
 // READY
 // =========================
-client.once("clientReady", () => {
+client.once("ready", () => {
   console.log(`🤖 Bot Patente online: ${client.user.tag}`);
 });
 
@@ -49,6 +55,7 @@ client.on("interactionCreate", async interaction => {
   if (interaction.isChatInputCommand()) {
     const command = client.commands.get(interaction.commandName);
     if (!command) return;
+
     await command.execute(interaction, client, userData, generatePaymentCode);
   }
 });
@@ -140,7 +147,16 @@ client.on("interactionCreate", async interaction => {
       });
     }
 
-    const channel = interaction.guild.channels.cache.find(c => c.name === "staff-patenti");
+    const channel = interaction.guild.channels.cache.find(
+      c => c.name === "staff-patenti"
+    );
+
+    if (!channel) {
+      return interaction.reply({
+        content: "❌ Canale staff-patenti non trovato",
+        ephemeral: true
+      });
+    }
 
     const embed = new EmbedBuilder()
       .setTitle("🚗 NUOVA RICHIESTA PATENTE")
@@ -186,7 +202,11 @@ client.on("messageCreate", async message => {
     return message.reply("❌ Devi inviare screenshot + codice pagamento!");
   }
 
-  const channel = message.guild.channels.cache.find(c => c.name === "staff-patenti");
+  const channel = message.guild.channels.cache.find(
+    c => c.name === "staff-patenti"
+  );
+
+  if (!channel) return;
 
   await channel.send({
     content: `💳 PAGAMENTO <@${message.author.id}> | Codice: ${data.code}`,
@@ -196,4 +216,5 @@ client.on("messageCreate", async message => {
   message.reply("✅ Pagamento inviato allo staff!");
 });
 
+// 🔑 LOGIN
 client.login(process.env.TOKEN);
