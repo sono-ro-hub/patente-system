@@ -26,7 +26,7 @@ module.exports = {
         .setStyle(ButtonStyle.Success),
 
       new ButtonBuilder()
-        .setCustomId("req_C-D")
+        .setCustomId("req_CD")
         .setLabel("🚛 Patente C-D")
         .setStyle(ButtonStyle.Secondary)
     );
