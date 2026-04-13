@@ -8,7 +8,6 @@ const {
   ButtonStyle
 } = require("discord.js");
 
-const fs = require("fs");
 const config = require("./config.json");
 
 // 🌐 EXPRESS (FIX RENDER)
@@ -39,16 +38,11 @@ const client = new Client({
   ]
 });
 
-client.commands = new Collection();
+// ❌ RIMOSSO SISTEMA COMMANDS (ERA IL PROBLEMA)
+// client.commands = new Collection();
+// const commandFiles = fs.readdirSync("./commands")...
+
 const userData = new Map();
-
-// 📦 LOAD COMMANDS
-const commandFiles = fs.readdirSync("./commands").filter(f => f.endsWith(".js"));
-
-for (const file of commandFiles) {
-  const command = require(`./commands/${file}`);
-  client.commands.set(command.data.name, command);
-}
 
 // 🔥 CODICE PAGAMENTO GENERATOR
 function generatePaymentCode() {
@@ -56,22 +50,21 @@ function generatePaymentCode() {
 }
 
 // =========================
-// READY (FIXED)
+// READY
 // =========================
-client.once("clientReady", () => {
+client.once("ready", () => {
   console.log(`🤖 Bot Patente online: ${client.user.tag}`);
 });
 
 // =========================
-// SLASH COMMANDS
+// SLASH COMMANDS (MINIMALE)
 // =========================
 client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
-  const command = client.commands.get(interaction.commandName);
-  if (!command) return;
-
-  await command.execute(interaction, client, userData, generatePaymentCode);
+  if (interaction.commandName === "ping") {
+    return interaction.reply("🏓 Pong!");
+  }
 });
 
 // =========================
