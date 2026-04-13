@@ -11,7 +11,21 @@ const {
 const fs = require("fs");
 const config = require("./config.json");
 
-// 🛡️ ANTI CRASH
+// 🌐 EXPRESS (FIX RENDER)
+const express = require("express");
+const app = express();
+
+const PORT = process.env.PORT || 3000;
+
+app.get("/", (req, res) => {
+  res.send("Bot online ✅");
+});
+
+app.listen(PORT, () => {
+  console.log(`🌐 Server attivo sulla porta ${PORT}`);
+});
+
+// 🛡️ ANTI CRASH GLOBALE
 process.on("unhandledRejection", (err) => {
   console.log("⚠️ Errore ignorato:", err);
 });
@@ -36,22 +50,22 @@ for (const file of commandFiles) {
   client.commands.set(command.data.name, command);
 }
 
-// 🔥 CODICE PAGAMENTO
+// 🔥 CODICE PAGAMENTO GENERATOR
 function generatePaymentCode() {
   return "PAT-" + Math.floor(10000 + Math.random() * 90000);
 }
 
 // =========================
-// READY
+// READY (FIXED)
 // =========================
-client.once("ready", () => {
+client.once("clientReady", () => {
   console.log(`🤖 Bot Patente online: ${client.user.tag}`);
 });
 
 // =========================
 // SLASH COMMANDS
 // =========================
-client.on("interactionCreate", async (interaction) => {
+client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
   const command = client.commands.get(interaction.commandName);
@@ -63,7 +77,7 @@ client.on("interactionCreate", async (interaction) => {
 // =========================
 // BUTTON SYSTEM
 // =========================
-client.on("interactionCreate", async (interaction) => {
+client.on("interactionCreate", async interaction => {
   if (!interaction.isButton()) return;
 
   const id = interaction.customId;
@@ -75,7 +89,7 @@ client.on("interactionCreate", async (interaction) => {
 
   const data = userData.get(userId);
 
-  // 📌 START
+  // 📌 START PATENTE
   if (id.startsWith("req_")) {
     const type = id.split("_")[1];
 
@@ -88,13 +102,14 @@ client.on("interactionCreate", async (interaction) => {
       .setDescription(
 `🏁 Patente: **${type}**
 
-💳 CODICE:
+💳 CODICE PAGAMENTO:
 \`${data.code}\`
 
+⚠️ Step:
 1️⃣ Quiz
 2️⃣ Pagamento
 3️⃣ Screenshot + codice
-4️⃣ Staff`
+4️⃣ Staff approva`
       );
 
     const row = new ActionRowBuilder().addComponents(
@@ -110,7 +125,7 @@ client.on("interactionCreate", async (interaction) => {
 
       new ButtonBuilder()
         .setCustomId(`send_${type}`)
-        .setLabel("📤 Invia")
+        .setLabel("📤 Invia staff")
         .setStyle(ButtonStyle.Secondary)
     );
 
@@ -121,7 +136,7 @@ client.on("interactionCreate", async (interaction) => {
     });
   }
 
-  // QUIZ
+  // 🧠 QUIZ
   if (id.startsWith("quiz_")) {
     data.step = 2;
 
@@ -131,21 +146,21 @@ client.on("interactionCreate", async (interaction) => {
     });
   }
 
-  // PAGAMENTO
+  // 💳 PAGAMENTO
   if (id.startsWith("pay_")) {
     data.step = 3;
 
     return interaction.reply({
-      content: "📸 Invia screenshot + CODICE nel messaggio",
+      content: "📸 Invia screenshot + CODICE PAGAMENTO nel messaggio",
       ephemeral: true
     });
   }
 
-  // INVIO STAFF
+  // 📤 STAFF SEND
   if (id.startsWith("send_")) {
     if (data.step < 3) {
       return interaction.reply({
-        content: "❌ Completa prima i passaggi",
+        content: "❌ Completa prima quiz e pagamento",
         ephemeral: true
       });
     }
@@ -162,9 +177,9 @@ client.on("interactionCreate", async (interaction) => {
     }
 
     const embed = new EmbedBuilder()
-      .setTitle("🚗 NUOVA PATENTE")
+      .setTitle("🚗 NUOVA RICHIESTA PATENTE")
       .setDescription(
-`👤 <@${userId}>
+`👤 Utente: <@${userId}>
 📌 Tipo: ${data.type}
 💳 Codice: ${data.code}`
       );
@@ -177,34 +192,32 @@ client.on("interactionCreate", async (interaction) => {
     });
   }
 
-  // ACCEPT
+  // ✅ ACCEPT
   if (id.startsWith("accept_")) {
     return interaction.update({
-      content: "✅ APPROVATA",
+      content: "✅ Patente APPROVATA",
       components: []
     });
   }
 
-  // REJECT
+  // ❌ REJECT
   if (id.startsWith("reject_")) {
     return interaction.update({
-      content: "❌ RIFIUTATA",
+      content: "❌ Patente RIFIUTATA",
       components: []
     });
   }
 });
 
-// =========================
-// SCREENSHOT CHECK
-// =========================
-client.on("messageCreate", async (message) => {
+// 📸 PAYMENT CHECK
+client.on("messageCreate", async message => {
   if (message.author.bot) return;
 
   const data = userData.get(message.author.id);
   if (!data || data.step !== 3) return;
 
   if (!message.content.includes(data.code) && message.attachments.size === 0) {
-    return message.reply("❌ Serve screenshot + codice!");
+    return message.reply("❌ Devi inviare screenshot + codice pagamento!");
   }
 
   const channel = message.guild.channels.cache.find(
@@ -214,12 +227,12 @@ client.on("messageCreate", async (message) => {
   if (!channel) return;
 
   await channel.send({
-    content: `💳 Pagamento <@${message.author.id}> | ${data.code}`,
+    content: `💳 PAGAMENTO <@${message.author.id}> | Codice: ${data.code}`,
     files: message.attachments.map(a => a.url)
   });
 
-  message.reply("✅ Inviato allo staff!");
+  message.reply("✅ Pagamento inviato allo staff!");
 });
 
-// LOGIN
+// 🔑 LOGIN
 client.login(process.env.TOKEN);
