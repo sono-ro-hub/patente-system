@@ -31,22 +31,25 @@ module.exports = {
         .setStyle(ButtonStyle.Secondary)
     );
 
-    const channel = interaction.guild.channels.cache.find(c => c.name === "moduli-patente");
+    // 🔧 FIX QUI
+    const channel = interaction.guild.channels.cache.find(
+      c => c.name === "patente"
+    );
 
     if (!channel) {
       return interaction.reply({
-        content: "❌ Canale non trovato",
+        content: "❌ Canale 'patente' non trovato",
         ephemeral: true
       });
     }
 
     await channel.send({
-      content: "📋 Clicca per richiedere patente",
+      content: "📋 **CLICCA QUI PER RICHIEDERE LA PATENTE**",
       components: [row]
     });
 
     return interaction.reply({
-      content: "✅ Menu inviato",
+      content: "✅ Menu patente inviato nel canale!",
       ephemeral: true
     });
   }
