@@ -1,266 +1,335 @@
-import discord
-from discord.ext import commands, tasks
-from discord import app_commands
-from datetime import datetime
-from zoneinfo import ZoneInfo
-from flask import Flask
-import threading
-import os
-import traceback
-import sqlite3
-import urllib.request
+// =========================
+// KEEP ALIVE (RENDER FIX)
+// =========================
+require("http").createServer((req, res) => {
+  res.write("Bot attivo");
+  res.end();
+}).listen(3000);
 
-# =========================
-# TOKEN
-# =========================
-TOKEN = os.getenv("DISCORD_TOKEN")
+// =========================
+// IMPORT
+// =========================
+const {
+  Client,
+  GatewayIntentBits,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  StringSelectMenuBuilder,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle
+} = require("discord.js");
 
-if not TOKEN:
-    print("⚠️ Token non trovato!")
-    exit()
+// =========================
+// CLIENT
+// =========================
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ]
+});
 
-# =========================
-# FLASK KEEP ALIVE
-# =========================
-app = Flask('')
+// =========================
+// CONFIG
+// =========================
+const CANALE_RICHIESTE = "1493595963942768860";
+const CANALE_STAFF = "1493597555760824503";
+const GUILD_ID = "1484912853126221896";
 
-@app.route('/')
-def home():
-    return "Bot attivo!"
+const RUOLI = {
+  A: "1493609058438090773",
+  B: "1493609132996165633",
+  CD: "1493609213086142645"
+};
 
-def run_web():
-    app.run(host='0.0.0.0', port=8080)
+// =========================
+// MEMORY
+// =========================
+const userData = new Map();
+let sent = false;
 
-threading.Thread(target=run_web, daemon=True).start()
+// =========================
+// QUIZ COMPLETO
+// =========================
+const quiz = {
+  A: [
+    "Casco obbligatorio?",
+    "Fari di giorno?",
+    "Rallentare in curva?",
+    "Serve patente?",
+    "Frenata su bagnato?",
+    "Freno anteriore più forte?",
+    "Superare a destra?",
+    "Gomme lisce sicure?",
+    "Freccia obbligatoria?",
+    "Casco allacciato?",
+    "Contromano?",
+    "Limite città 50?",
+    "Distanza pioggia?",
+    "Clacson emergenza?",
+    "Sorpasso vietato?"
+  ],
+  B: [
+    "Cintura obbligatoria?",
+    "Semaforo rosso?",
+    "Cellulare alla guida?",
+    "Fari notte?",
+    "Linea continua?",
+    "Autostrada 130?",
+    "Seggiolino bambini?",
+    "Precedenza destra?",
+    "Parcheggio vietato?",
+    "Distanza sicurezza?",
+    "Sorpasso sinistra?",
+    "Rispettare limiti?",
+    "Clacson?",
+    "Fari giorno?",
+    "Stop obbligatorio?"
+  ],
+  CD: [
+    "Limite camion città?",
+    "Semaforo rosso?",
+    "Ambulanza?",
+    "Freno motore?",
+    "Parcheggio camion?",
+    "Segnale camion?",
+    "Distanza sicurezza?",
+    "Anabbaglianti?",
+    "Peso massimo?",
+    "Controlli mezzo?",
+    "Riposo obbligatorio?",
+    "Carico sicuro?",
+    "Sorpasso camion?",
+    "Frenata lunga?",
+    "Specchietti obbligatori?"
+  ]
+};
 
-# =========================
-# DATABASE
-# =========================
-conn = sqlite3.connect("recensioni.db")
-cursor = conn.cursor()
+// =========================
+// READY
+// =========================
+client.once("ready", async () => {
+  console.log("BOT PRONTO");
 
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS recensioni (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    utente TEXT,
-    voto INTEGER
-)
-""")
-conn.commit()
+  const ch = await client.channels.fetch(CANALE_RICHIESTE);
 
-# =========================
-# BOT
-# =========================
-intents = discord.Intents.default()
-intents.members = True
+  if (!sent) {
+    const embed = new EmbedBuilder()
+      .setColor("#0a0aff")
+      .setTitle("🏛️ Dipartimento Trasporti — Sud Italy RP")
+      .setDescription(`
+Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale.
 
-bot = commands.Bot(command_prefix="/", intents=intents)
-tree = bot.tree
+━━━━━━━━━━━━━━━━━━
+📋 Tipi patente
+🅰️ Moto
+🅱️ Auto
+🅲 Camion/Bus
 
-# =========================
-# CONFIG
-# =========================
-OWNER_ID = 1416503148998033509
+━━━━━━━━━━━━━━━━━━
+⚠️ Rispetta i requisiti
+`);
 
-WARN_ROLES = [1431782790361251940, 1426203184719724686]
-BAN_ROLES = [1431782790361251940, 1426203184719724686]
-STATUS_ROLES = [1402426264639246428, 1428439749651337266]
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("start")
+        .setLabel("Richiedi patente")
+        .setStyle(ButtonStyle.Success)
+    );
 
-STATUS_IMAGE = "https://cdn.discordapp.com/attachments/1420059113462960229/1493384509327147188/IMG_5956.png"
+    await ch.send({ embeds: [embed], components: [row] });
+    sent = true;
+  }
+});
 
-# =========================
-# UTILS
-# =========================
-def now_rome():
-    return datetime.now(ZoneInfo("Europe/Rome"))
+// =========================
+// INTERAZIONI
+// =========================
+client.on("interactionCreate", async (interaction) => {
 
-def format_time():
-    return now_rome().strftime("%d/%m/%Y | %H:%M")
+  try {
 
-def has_perm(interaction, roles):
-    if interaction.user.id == OWNER_ID:
-        return True
-    if not isinstance(interaction.user, discord.Member):
-        return False
-    return any(r.id in roles for r in interaction.user.roles)
+    // START
+    if (interaction.isButton() && interaction.customId === "start") {
 
-def media_totale():
-    cursor.execute("SELECT voto FROM recensioni")
-    voti = [r[0] for r in cursor.fetchall()]
-    if not voti:
-        return 0
-    return round(sum(voti) / len(voti) * 2, 1)
+      const menu = new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId("select")
+          .setPlaceholder("Seleziona patente")
+          .addOptions([
+            { label: "Patente A", value: "A" },
+            { label: "Patente B", value: "B" },
+            { label: "Patente C-D", value: "CD" }
+          ])
+      );
 
-def stelle(voto):
-    return "⭐" * voto
+      return interaction.reply({ content: "Scegli patente", components: [menu], ephemeral: true });
+    }
 
-# =========================
-# READY
-# =========================
-@bot.event
-async def on_ready():
-    await tree.sync()
-    print(f"ONLINE {bot.user}")
+    // SELECT
+    if (interaction.isStringSelectMenu()) {
 
-# =========================
-# RECENSIONE
-# =========================
-@tree.command(name="recensione", description="Crea una recensione utente")
-@app_commands.describe(
-    utente="Utente recensito",
-    autore="Autore recensione",
-    voto="Voto da 1 a 5",
-    commento="Commento recensione"
-)
-async def recensione(interaction: discord.Interaction, utente: discord.Member, autore: discord.Member, voto: int, commento: str):
+      const type = interaction.values[0];
 
-    await interaction.response.defer()
+      userData.set(interaction.user.id, {
+        type,
+        step: 0,
+        answers: [],
+        awaitingPhoto: false
+      });
 
-    if voto < 1 or voto > 5:
-        return await interaction.followup.send("Voto 1-5", ephemeral=True)
+      return sendQuiz(interaction, interaction.user.id);
+    }
 
-    cursor.execute("INSERT INTO recensioni (utente, voto) VALUES (?, ?)", (utente.display_name, voto))
-    conn.commit()
+    // QUIZ
+    if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
-    if voto <= 2:
-        color = discord.Color.red()
-    elif voto == 3:
-        color = discord.Color.gold()
-    else:
-        color = discord.Color.green()
+      const data = userData.get(interaction.user.id);
+      const risposte = interaction.fields.fields.map(f => f.value);
 
-    embed = discord.Embed(title="Recensione", color=color)
+      data.answers.push(...risposte);
+      data.step += 5;
 
-    embed.add_field(name="Utente", value=utente.mention, inline=False)
-    embed.add_field(name="Autore", value=autore.mention, inline=False)
-    embed.add_field(name="Voto", value=f"{stelle(voto)} ({voto}/5)", inline=False)
-    embed.add_field(name="Commento", value=commento, inline=False)
-    embed.add_field(name="Media", value=f"{media_totale()}/10", inline=False)
+      if (data.step >= quiz[data.type].length) {
 
-    embed.set_footer(text=f"Data: {format_time()}")
+        data.awaitingPhoto = true;
 
-    await interaction.followup.send(embed=embed)
+        return interaction.reply({
+          content: "📸 Invia ORA lo screenshot del pagamento QUI in chat (allegato dalla galleria)",
+          ephemeral: true
+        });
 
-# =========================
-# WARN
-# =========================
-@tree.command(name="warn", description="Warn utente (STAFF ONLY)")
-async def warn(interaction: discord.Interaction, utente: str, motivo: str, scadenza: str, effettuato_da: str, provvedimento: str, firma: str):
+      } else {
+        return sendQuiz(interaction, interaction.user.id);
+      }
+    }
 
-    if not has_perm(interaction, WARN_ROLES):
-        return await interaction.response.send_message("❌ No permessi", ephemeral=True)
+    // STAFF BUTTON
+    if (interaction.isButton()) {
 
-    embed = discord.Embed(title="🚨 WARN", color=discord.Color.red())
-    embed.add_field(name="Utente", value=utente, inline=False)
-    embed.add_field(name="Motivo", value=motivo, inline=False)
-    embed.add_field(name="Scadenza", value=scadenza, inline=False)
-    embed.add_field(name="Effettuato da", value=effettuato_da, inline=False)
-    embed.add_field(name="Provvedimento", value=provvedimento, inline=False)
-    embed.add_field(name="Firma", value=firma, inline=False)
-    embed.set_footer(text=f"Data: {format_time()}")
+      if (interaction.customId.startsWith("accetta_") || interaction.customId.startsWith("rifiuta_")) {
 
-    await interaction.response.send_message(embed=embed)
+        const modal = new ModalBuilder()
+          .setCustomId(`motivo_${interaction.customId}`)
+          .setTitle("Motivo obbligatorio");
 
-# =========================
-# BAN
-# =========================
-@tree.command(name="ban", description="Ban utente (STAFF ONLY)")
-async def ban(interaction: discord.Interaction, utente: str, motivo: str, durata: str, firma: str):
+        const input = new TextInputBuilder()
+          .setCustomId("reason")
+          .setLabel("Scrivi il motivo")
+          .setStyle(TextInputStyle.Paragraph)
+          .setRequired(true);
 
-    if not has_perm(interaction, BAN_ROLES):
-        return await interaction.response.send_message("❌ No permessi", ephemeral=True)
+        modal.addComponents(new ActionRowBuilder().addComponents(input));
 
-    embed = discord.Embed(title="⛔ BAN", color=discord.Color.dark_red())
-    embed.add_field(name="Utente", value=utente, inline=False)
-    embed.add_field(name="Motivo", value=motivo, inline=False)
-    embed.add_field(name="Durata", value=durata, inline=False)
-    embed.add_field(name="Firma", value=firma, inline=False)
-    embed.set_footer(text=f"Data: {format_time()}")
+        return interaction.showModal(modal);
+      }
+    }
 
-    await interaction.response.send_message(embed=embed)
+    // MOTIVO STAFF
+    if (interaction.isModalSubmit() && interaction.customId.startsWith("motivo_")) {
 
-# =========================
-# TOP
-# =========================
-@tree.command(name="top", description="Classifica recensioni utenti")
-async def top(interaction: discord.Interaction):
+      const action = interaction.customId.replace("motivo_", "");
+      const id = action.split("_")[1];
 
-    await interaction.response.defer()
+      const guild = await client.guilds.fetch(GUILD_ID);
+      const member = await guild.members.fetch(id);
 
-    cursor.execute("SELECT utente, voto FROM recensioni")
-    rows = cursor.fetchall()
+      const tipo = userData.get(id)?.type;
 
-    if not rows:
-        return await interaction.followup.send("Nessuna recensione")
+      if (action.startsWith("accetta_")) {
+        await member.roles.add(RUOLI[tipo]);
+      }
 
-    stats = {}
-    for u, v in rows:
-        stats.setdefault(u, []).append(v)
+      return interaction.reply({
+        content: action.startsWith("accetta_")
+          ? `✅ ACCETTATO\nMotivo: ${interaction.fields.getTextInputValue("reason")}`
+          : `❌ RIFIUTATO\nMotivo: ${interaction.fields.getTextInputValue("reason")}`
+      });
+    }
 
-    ranking = sorted(
-        [(u, sum(v)/len(v)) for u, v in stats.items()],
-        key=lambda x: x[1],
-        reverse=True
-    )
+  } catch (e) {
+    console.log(e);
+  }
+});
 
-    testo = "\n".join(
-        f"{i+1}. {u} - {round(m*2,1)}/10"
-        for i, (u, m) in enumerate(ranking)
-    )
+// =========================
+// FOTO (ALLEGATO)
+// =========================
+client.on("messageCreate", async (message) => {
 
-    embed = discord.Embed(
-        title="🏆 TOP UTENTI",
-        description=testo,
-        color=discord.Color.blue()
-    )
+  if (message.author.bot) return;
 
-    await interaction.followup.send(embed=embed)
+  const data = userData.get(message.author.id);
+  if (!data || !data.awaitingPhoto) return;
 
-# =========================
-# STATUS (UNICO COMANDO)
-# =========================
-@tree.command(name="status", description="Stato server ON/OFF")
-@app_commands.describe(stato="Scrivi on oppure off")
-async def status(interaction: discord.Interaction, stato: str):
+  if (message.attachments.size === 0) {
+    return message.reply("❌ Devi inviare una FOTO dalla galleria");
+  }
 
-    if not has_perm(interaction, STATUS_ROLES):
-        return await interaction.response.send_message("❌ No permessi", ephemeral=True)
+  const staff = await client.channels.fetch(CANALE_STAFF);
 
-    stato = stato.lower()
-    now = format_time()
+  const embed = new EmbedBuilder()
+    .setColor("#0a0aff")
+    .setTitle("NUOVA PATENTE")
+    .setDescription(`
+👤 <@${message.author.id}>
+Tipo: ${data.type}
 
-    if stato == "on":
+Risposte:
+${data.answers.join("\n")}
+`)
+    .setImage(message.attachments.first().url);
 
-        embed = discord.Embed(
-            title="🟢 SERVER ONLINE",
-            color=discord.Color.green(),
-            description=(
-                "**Server ON**\n"
-                "Il server è on insieme alla moderazione buon rp e divertimento dallo staff di sud italy rp\n\n"
-                "```yaml\n"
-                "🔥 CODICE SERVER: v90mci1k 🔥\n"
-                "```\n"
-                f"Data: {now}"
-            )
-        )
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`accetta_${message.author.id}`)
+      .setLabel("ACCETTA")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(`rifiuta_${message.author.id}`)
+      .setLabel("RIFIUTA")
+      .setStyle(ButtonStyle.Danger)
+  );
 
-    elif stato == "off":
+  await staff.send({ embeds: [embed], components: [row] });
 
-        embed = discord.Embed(
-            title="🔴 SERVER OFFLINE",
-            color=discord.Color.red(),
-            description=(
-                "Il server è offline per entrare bisognerà aspettare il prossimo ssu, lo staff non ha nessuna responsabilità durante la chiusura\n\n"
-                f"Data: {now}"
-            )
-        )
-    else:
-        return await interaction.response.send_message("Scrivi solo 'on' oppure 'off'", ephemeral=True)
+  message.reply("✅ Richiesta inviata allo staff!");
 
-    embed.set_image(url=STATUS_IMAGE)
-    await interaction.response.send_message(embed=embed)
+  data.awaitingPhoto = false;
+});
 
-# =========================
-# RUN
-# =========================
-bot.run(TOKEN)
+// =========================
+// QUIZ A BLOCCHI
+// =========================
+function sendQuiz(interaction, userId) {
+
+  const data = userData.get(userId);
+  const domande = quiz[data.type].slice(data.step, data.step + 5);
+
+  const modal = new ModalBuilder()
+    .setCustomId("quiz")
+    .setTitle("Quiz Patente");
+
+  domande.forEach((d, i) => {
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId(`q${i}`)
+          .setLabel(d)
+          .setStyle(TextInputStyle.Short)
+      )
+    );
+  });
+
+  return interaction.showModal(modal);
+}
+
+// =========================
+// LOGIN
+// =========================
+client.login(process.env.TOKEN);
