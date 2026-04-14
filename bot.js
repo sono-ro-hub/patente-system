@@ -4,7 +4,7 @@
 require("http").createServer((req, res) => {
   res.write("Bot attivo");
   res.end();
-}).listen(3000);
+}).listen(process.env.PORT || 3000);
 
 // =========================
 // IMPORT
@@ -52,54 +52,12 @@ const userData = new Map();
 let sent = false;
 
 // =========================
-// INFO
-// =========================
-const INFO = `
-🏛️ Dipartimento Trasporti — Sud Italy RP
-
-Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale.
-
-━━━━━━━━━━━━━━━━━━
-🅰️ Patente A → Moto  
-🅱️ Patente B → Auto  
-🅲 Patente C-D → Camion/Bus  
-
-━━━━━━━━━━━━━━━━━━
-📌 Procedura:
-1) Completa quiz  
-2) Invia 3k a Lessimanuardi123  
-3) Carica screenshot  
-4) Attendi staff
-`;
-
-// =========================
-// QUIZ (RIDOTTO)
+// QUIZ
 // =========================
 const quiz = {
-  A: [
-    "Casco obbligatorio?",
-    "Fari di giorno?",
-    "Rallentare in curva?",
-    "Si può guidare senza patente?",
-    "Strada bagnata = frenata lunga?",
-    "Contromano permesso?"
-  ],
-  B: [
-    "Cintura obbligatoria?",
-    "Semaforo rosso = stop?",
-    "Cellulare senza vivavoce?",
-    "Fari notte obbligatori?",
-    "Limite autostrada 130?",
-    "Sorpasso linea continua?"
-  ],
-  CD: [
-    "Limite camion città?",
-    "Rosso cosa fai?",
-    "Ambulanza priorità?",
-    "Freno motore cos'è?",
-    "Distanza sicurezza?",
-    "Parcheggio camion?"
-  ]
+  A: ["Casco obbligatorio?", "Fari di giorno?", "Rallentare in curva?", "Si può guidare senza patente?", "Strada bagnata = frenata lunga?"],
+  B: ["Cintura obbligatoria?", "Semaforo rosso = stop?", "Cellulare senza vivavoce?", "Fari notte obbligatori?", "Limite autostrada 130?"],
+  CD: ["Limite camion città?", "Rosso cosa fai?", "Ambulanza priorità?", "Freno motore cos'è?", "Distanza sicurezza?"]
 };
 
 // =========================
@@ -112,9 +70,31 @@ client.once("ready", async () => {
 
   if (!sent) {
     const embed = new EmbedBuilder()
-      .setColor("Green")
+      .setColor("#0b3d91")
       .setTitle("📄 RICHIESTA PATENTE")
-      .setDescription("Premi per iniziare");
+      .setDescription(`
+• 🏛️ Dipartimento Trasporti — Sud Italy RP
+
+Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale.
+
+━━━━━━━━━━━━━━━━━━
+📋 Tipi di patente
+
+🅰️ Patente A → Moto  
+🅱️ Patente B → Auto  
+🅲 Patente C-D → Camion/Bus  
+
+━━━━━━━━━━━━━━━━━━
+📝 Condizioni richieste
+
+• Essere cittadino registrato  
+• Comportamento civile RP  
+• Nessuna sospensione  
+• Conoscenza norme  
+
+━━━━━━━━━━━━━━━━━━
+⚠️ Il mancato rispetto comporta rifiuto
+`);
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -138,10 +118,6 @@ client.on("interactionCreate", async (interaction) => {
     // START
     if (interaction.isButton() && interaction.customId === "start") {
 
-      const embed = new EmbedBuilder()
-        .setColor("Green")
-        .setDescription(INFO);
-
       const menu = new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId("select")
@@ -153,10 +129,14 @@ client.on("interactionCreate", async (interaction) => {
           ])
       );
 
-      return interaction.reply({ embeds: [embed], components: [menu], ephemeral: true });
+      return interaction.reply({
+        content: "Seleziona la patente",
+        components: [menu],
+        ephemeral: true
+      });
     }
 
-    // SELECT
+    // SELECT → INFO PRIMA DEL QUIZ
     if (interaction.isStringSelectMenu()) {
 
       const type = interaction.values[0];
@@ -167,10 +147,40 @@ client.on("interactionCreate", async (interaction) => {
         answers: []
       });
 
+      const embed = new EmbedBuilder()
+        .setColor("#0b3d91")
+        .setTitle("📄 INFORMAZIONI PATENTE")
+        .setDescription(`
+INFORMAZIONI PATENTE
+
+1) Completa il quiz  
+2) Invia 3k a Lessimanuardi123  
+3) Carica screenshot pagamento  
+4) Attendi staff  
+
+⚠️ Senza patente → multa 1k
+`);
+
+      const btn = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("start_quiz")
+          .setLabel("Inizia Quiz")
+          .setStyle(ButtonStyle.Primary)
+      );
+
+      return interaction.reply({
+        embeds: [embed],
+        components: [btn],
+        ephemeral: true
+      });
+    }
+
+    // START QUIZ
+    if (interaction.isButton() && interaction.customId === "start_quiz") {
       return sendQuiz(interaction, interaction.user.id);
     }
 
-    // QUIZ SUBMIT
+    // QUIZ
     if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
       const data = userData.get(interaction.user.id);
@@ -179,9 +189,7 @@ client.on("interactionCreate", async (interaction) => {
       data.answers.push(...risposte);
       data.step += 5;
 
-      const domande = quiz[data.type];
-
-      if (data.step >= domande.length) {
+      if (data.step >= quiz[data.type].length) {
 
         const btn = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
@@ -191,7 +199,7 @@ client.on("interactionCreate", async (interaction) => {
         );
 
         return interaction.reply({
-          content: "Quiz completato. Ora invia pagamento.",
+          content: "Quiz completato. Ora carica il pagamento.",
           components: [btn],
           ephemeral: true
         });
@@ -210,7 +218,7 @@ client.on("interactionCreate", async (interaction) => {
 
       const input = new TextInputBuilder()
         .setCustomId("photo")
-        .setLabel("Link screenshot")
+        .setLabel("Link screenshot pagamento")
         .setStyle(TextInputStyle.Short)
         .setRequired(true);
 
@@ -226,8 +234,8 @@ client.on("interactionCreate", async (interaction) => {
       const staff = await client.channels.fetch(CANALE_STAFF);
 
       const embed = new EmbedBuilder()
-        .setColor("Green")
-        .setTitle("NUOVA PATENTE")
+        .setColor("#0b3d91")
+        .setTitle("📄 NUOVA PATENTE")
         .setDescription(`
 👤 <@${interaction.user.id}>
 Tipo: ${data.type}
@@ -253,21 +261,20 @@ ${data.answers.join("\n")}
       return interaction.reply({ content: "Inviato allo staff", ephemeral: true });
     }
 
-    // STAFF
+    // STAFF → CHIEDE MOTIVO
     if (interaction.isButton()) {
 
       if (interaction.customId.startsWith("accetta_") || interaction.customId.startsWith("rifiuta_")) {
 
-        const id = interaction.customId.split("_")[1];
-
         const modal = new ModalBuilder()
           .setCustomId(`motivo_${interaction.customId}`)
-          .setTitle("Motivo");
+          .setTitle("Motivo decisione");
 
         const input = new TextInputBuilder()
           .setCustomId("reason")
           .setLabel("Scrivi il motivo")
-          .setStyle(TextInputStyle.Paragraph);
+          .setStyle(TextInputStyle.Paragraph)
+          .setRequired(true);
 
         modal.addComponents(new ActionRowBuilder().addComponents(input));
 
@@ -275,7 +282,7 @@ ${data.answers.join("\n")}
       }
     }
 
-    // MOTIVO
+    // MOTIVO + RUOLO AUTOMATICO
     if (interaction.isModalSubmit() && interaction.customId.startsWith("motivo_")) {
 
       const action = interaction.customId.replace("motivo_", "");
@@ -286,14 +293,14 @@ ${data.answers.join("\n")}
 
       const tipo = userData.get(id)?.type;
 
-      if (action.startsWith("accetta_")) {
-        await member.roles.add(RUOLI[tipo]);
+      if (action.startsWith("accetta_") && tipo) {
+        await member.roles.add(RUOLI[tipo]).catch(() => {});
       }
 
       return interaction.reply({
         content: action.startsWith("accetta_")
-          ? `ACCETTATO\nMotivo: ${interaction.fields.getTextInputValue("reason")}`
-          : `RIFIUTATO\nMotivo: ${interaction.fields.getTextInputValue("reason")}`
+          ? `✅ ACCETTATO\nMotivo: ${interaction.fields.getTextInputValue("reason")}`
+          : `❌ RIFIUTATO\nMotivo: ${interaction.fields.getTextInputValue("reason")}`
       });
     }
 
@@ -303,7 +310,7 @@ ${data.answers.join("\n")}
 });
 
 // =========================
-// FUNZIONE QUIZ
+// QUIZ FUNCTION
 // =========================
 function sendQuiz(interaction, userId) {
 
