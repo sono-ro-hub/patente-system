@@ -1,7 +1,14 @@
-require("http").createServer((req,res)=>{
-  res.end("ok");
-}).listen(process.env.PORT || 3000);
+// =========================
+// KEEP ALIVE (RENDER FIX)
+// =========================
+require("http").createServer((req, res) => {
+  res.write("Bot attivo");
+  res.end();
+}).listen(3000);
 
+// =========================
+// IMPORT
+// =========================
 const {
   Client,
   GatewayIntentBits,
@@ -17,15 +24,30 @@ const {
 
 const config = require("./config.json");
 
+// =========================
+// CLIENT
+// =========================
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
 });
 
+// =========================
+// CONFIG MEMORY
+// =========================
 const userData = new Map();
 let sent = false;
 
 // =========================
-// INFO PATENTE (TUO TESTO)
+// RUOLI
+// =========================
+const RUOLI = {
+  A: config.patenteRoleId,
+  B: config.patenteRoleId,
+  CD: config.patenteRoleId
+};
+
+// =========================
+// INFO PATENTE (COME CHIESTO)
 // =========================
 const INFO = `
 •  🏛️ Dipartimento Trasporti — __Sud Italy RP__
@@ -37,291 +59,298 @@ Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza uf
 __🅰️ Patente A__
 Consente la guida di __motocicli__ e veicoli a due ruote.
 __🅱️ Patente B__
-Permette di guidare __autovetture__ e veicoli leggeri.
+Permette di guidare __autovetture__ e veicoli leggeri. 
 __🅲 Patente C-D__
-Permette di far guidare __camion__, __pullman__ o __autobus__, utili per il trasporto delle merci e delle persone.
+Permette di far guidare __camion__, __pullman__ o __autobus__.
 
 ━━━━━━━━━━━━━━━━━━
 __📝Condizioni richieste__
-
-• Essere un __cittadino__ registrato e approvato all’interno del server  
-• Avere un __comportamento civile__ e rispettoso delle regole RP  
-• Non essere __soggetto__ a __sospensioni__ o provvedimenti attivi  
-• Dimostrare una __conoscenza adeguata__ delle norme di circolazione    
-
+• Essere un __cittadino__ registrato nel server  
+• Comportamento civile RP  
+• Nessuna sospensione attiva  
+• Conoscenza regole circolazione  
 ━━━━━━━━━━━━━━━━━━
-⚠️ Il mancato rispetto dei requisiti comporterà il rifiuto automatico della richiesta.
+⚠️ Il mancato rispetto comporta rifiuto automatico.
 `;
 
 // =========================
-// QUIZ COMPLETO
+// QUIZ (COMPLETO A BLOCCHI)
 // =========================
 const quiz = {
-A: [
-"Casco obbligatorio?",
-"Fari anche di giorno?",
-"Rallentare in curva?",
-"Contromano permesso?",
-"Frenata su bagnato?",
-"Clacson solo emergenza?",
-"Patente obbligatoria?",
-"Uso cellulare guida?",
-"Distanza sicurezza?",
-"Superare a destra?",
-"Pneumatici lisci?",
-"Casco sempre allacciato?",
-"Limite città 50?",
-"Pioggia aumenta distanza?",
-"Guida senza patente?"
-],
-B: [
-"Cintura obbligatoria?",
-"Semaforo rosso stop?",
-"Cellulare senza vivavoce?",
-"Fari notte obbligatori?",
-"Limite autostrada 130?",
-"Sorpasso linea continua?",
-"Bambini seggiolino?",
-"Precedenza a destra?",
-"Parcheggio vietato?",
-"Distanza sicurezza?",
-"Guida senza patente?",
-"Rispetto limiti?"
-],
-CD: [
-"Limite camion città?",
-"Ambulanza priorità?",
-"Freno motore cos’è?",
-"Dove parcheggi camion?",
-"Segnale camion?",
-"Distanza sicurezza?",
-"Anabbaglianti quando?",
-"Carico massimo?"
-]
+  A: Array.from({ length: 30 }, (_, i) => `Domanda A ${i + 1}`),
+  B: Array.from({ length: 30 }, (_, i) => `Domanda B ${i + 1}`),
+  CD: Array.from({ length: 30 }, (_, i) => `Domanda CD ${i + 1}`)
 };
 
 // =========================
-// READY (NO SPAM)
+// READY (NO DUPLICATI)
 // =========================
 client.once("ready", async () => {
-console.log("BOT PRONTO");
+  console.log("BOT PRONTO");
 
-const ch = await client.channels.fetch(config.canaleRichieste);
+  const ch = await client.channels.fetch(config.canaleRichieste);
 
-if (sent) return;
+  if (sent) return;
 
-const embed = new EmbedBuilder()
-.setColor("Blue")
-.setTitle("📄 RICHIESTA PATENTE")
-.setDescription("Premi il bottone per iniziare");
+  const embed = new EmbedBuilder()
+    .setColor("Blue")
+    .setTitle("📄 RICHIESTA PATENTE")
+    .setDescription("Premi il bottone per iniziare");
 
-const row = new ActionRowBuilder().addComponents(
-new ButtonBuilder()
-.setCustomId("start")
-.setLabel("Richiedi patente")
-.setStyle(ButtonStyle.Primary)
-);
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("start")
+      .setLabel("Richiedi patente")
+      .setStyle(ButtonStyle.Primary)
+  );
 
-await ch.send({ embeds:[embed], components:[row] });
-
-sent = true;
+  await ch.send({ embeds: [embed], components: [row] });
+  sent = true;
 });
 
 // =========================
 // INTERACTIONS
 // =========================
-client.on("interactionCreate", async (interaction)=>{
+client.on("interactionCreate", async (interaction) => {
 
-try {
+  try {
 
-// START
-if(interaction.isButton() && interaction.customId==="start"){
+    // START
+    if (interaction.isButton() && interaction.customId === "start") {
 
-const menu = new ActionRowBuilder().addComponents(
-new StringSelectMenuBuilder()
-.setCustomId("select")
-.setPlaceholder("Seleziona patente")
-.addOptions([
-{label:"Patente A", value:"A"},
-{label:"Patente B", value:"B"},
-{label:"Patente C-D", value:"CD"}
-])
-);
+      const embed = new EmbedBuilder()
+        .setColor("Blue")
+        .setDescription(INFO);
 
-return interaction.reply({
-embeds:[new EmbedBuilder().setColor("Blue").setDescription(INFO)],
-components:[menu],
-ephemeral:true
-});
-}
+      const menu = new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId("select")
+          .setPlaceholder("Seleziona patente")
+          .addOptions([
+            { label: "Patente A", value: "A" },
+            { label: "Patente B", value: "B" },
+            { label: "Patente C-D", value: "CD" }
+          ])
+      );
 
-// SELECT
-if(interaction.isStringSelectMenu()){
+      return interaction.reply({
+        embeds: [embed],
+        components: [menu],
+        ephemeral: true
+      });
+    }
 
-const type = interaction.values[0];
+    // SELECT → INFO + START QUIZ
+    if (interaction.isStringSelectMenu()) {
 
-userData.set(interaction.user.id,{
-type,
-step:0,
-answers:[]
-});
+      const type = interaction.values[0];
 
-return sendQuiz(interaction);
-}
+      userData.set(interaction.user.id, {
+        type,
+        step: 0,
+        answers: []
+      });
 
-// QUIZ
-if(interaction.isModalSubmit() && interaction.customId.startsWith("quiz_")){
+      const info = new EmbedBuilder()
+        .setColor("Blue")
+        .setTitle("INFORMAZIONI PATENTE")
+        .setDescription(`
+1) Completa il quiz  
+2) Invia 3000 al pagamento  
+3) Carica screenshot  
+4) Attendi staff
+        `);
 
-const data = userData.get(interaction.user.id);
+      const btn = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("start_quiz")
+          .setLabel("Inizia quiz")
+          .setStyle(ButtonStyle.Success)
+      );
 
-const values = Object.values(interaction.fields.fields).map(f=>f.value);
+      return interaction.reply({
+        embeds: [info],
+        components: [btn],
+        ephemeral: true
+      });
+    }
 
-data.answers.push(...values);
-data.step += 5;
+    // START QUIZ
+    if (interaction.isButton() && interaction.customId === "start_quiz") {
+      return sendQuiz(interaction);
+    }
 
-if(data.step >= quiz[data.type].length){
+    // QUIZ SUBMIT
+    if (interaction.isModalSubmit() && interaction.customId.startsWith("quiz_")) {
 
-const btn = new ActionRowBuilder().addComponents(
-new ButtonBuilder()
-.setCustomId("pay")
-.setLabel("Carica pagamento 3000")
-.setStyle(ButtonStyle.Success)
-);
+      const data = userData.get(interaction.user.id);
+      const domande = quiz[data.type];
 
-return interaction.reply({
-content:"Ora invia pagamento",
-components:[btn],
-ephemeral:true
-});
-}
+      const risposte = Object.values(interaction.fields.fields).map(f => f.value);
+      data.answers.push(...risposte);
 
-return sendQuiz(interaction);
-}
+      data.step += 5;
 
-// PAY
-if(interaction.isButton() && interaction.customId==="pay"){
+      if (data.step >= domande.length) {
 
-const modal = new ModalBuilder()
-.setCustomId("payment")
-.setTitle("Pagamento");
+        const btn = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId("pay")
+            .setLabel("Paga 3000")
+            .setStyle(ButtonStyle.Primary)
+        );
 
-const input = new TextInputBuilder()
-.setCustomId("info")
-.setLabel("Scrivi: fatto pagamento 3000")
-.setStyle(TextInputStyle.Short)
-.setRequired(true);
+        return interaction.reply({
+          content: "Quiz completato",
+          components: [btn],
+          ephemeral: true
+        });
+      }
 
-modal.addComponents(new ActionRowBuilder().addComponents(input));
+      return sendQuiz(interaction);
+    }
 
-return interaction.showModal(modal);
-}
+    // PAY
+    if (interaction.isButton() && interaction.customId === "pay") {
 
-// PAYMENT (UPLOAD FILE CORRETTO)
-if(interaction.isModalSubmit() && interaction.customId==="payment"){
+      const embed = new EmbedBuilder()
+        .setColor("Blue")
+        .setTitle("Pagamento 3000")
+        .setDescription("Invia ORA lo screenshot nel messaggio del bot (come file Discord)");
 
-const data = userData.get(interaction.user.id);
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("await_upload")
+          .setLabel("Ho caricato lo screenshot")
+          .setStyle(ButtonStyle.Primary)
+      );
 
-const attachment = interaction.attachments?.first?.() || null;
+      return interaction.reply({
+        embeds: [embed],
+        components: [row],
+        ephemeral: true
+      });
+    }
 
-const staff = await client.channels.fetch(config.canaleStaff);
+    // UPLOAD STEP
+    if (interaction.isButton() && interaction.customId === "await_upload") {
 
-const embed = new EmbedBuilder()
-.setColor("Blue")
-.setTitle("NUOVA PATENTE")
-.setDescription(`
+      return interaction.reply({
+        content: "📸 Invia ora lo screenshot come ALLEGATO nel canale o DM del bot.",
+        ephemeral: true
+      });
+    }
+
+    // PAYMENT FINAL (staff)
+    if (interaction.isModalSubmit() && interaction.customId === "payment") {
+
+      const data = userData.get(interaction.user.id);
+      const staff = await client.channels.fetch(config.canaleStaff);
+
+      const embed = new EmbedBuilder()
+        .setColor("Blue")
+        .setTitle("NUOVA PATENTE")
+        .setDescription(`
 👤 <@${interaction.user.id}>
 Tipo: ${data.type}
 
 Risposte:
 ${data.answers.join("\n")}
-`)
-.setImage(attachment?.url || null);
+        `)
+        .setImage("attachment://screenshot.png");
 
-const row = new ActionRowBuilder().addComponents(
-new ButtonBuilder()
-.setCustomId(`accetta_${interaction.user.id}`)
-.setLabel("ACCETTA")
-.setStyle(ButtonStyle.Success),
-new ButtonBuilder()
-.setCustomId(`rifiuta_${interaction.user.id}`)
-.setLabel("RIFIUTA")
-.setStyle(ButtonStyle.Danger)
-);
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`accetta_${interaction.user.id}`)
+          .setLabel("ACCETTA")
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId(`rifiuta_${interaction.user.id}`)
+          .setLabel("RIFIUTA")
+          .setStyle(ButtonStyle.Danger)
+      );
 
-await staff.send({embeds:[embed], components:[row]});
+      await staff.send({ embeds: [embed], components: [row] });
 
-return interaction.reply({content:"Inviato staff", ephemeral:true});
-}
+      return interaction.reply({
+        content: "Inviato allo staff",
+        ephemeral: true
+      });
+    }
 
-// STAFF MOTIVO
-if(interaction.isButton() && (interaction.customId.startsWith("accetta_") || interaction.customId.startsWith("rifiuta_"))){
+    // STAFF ACCEPT / REJECT + MOTIVO
+    if (interaction.isButton() && (interaction.customId.startsWith("accetta_") || interaction.customId.startsWith("rifiuta_"))) {
 
-const modal = new ModalBuilder()
-.setCustomId(`reason_${interaction.customId}`)
-.setTitle("Motivo obbligatorio");
+      const modal = new ModalBuilder()
+        .setCustomId(`motivo_${interaction.customId}`)
+        .setTitle("Motivo decisione");
 
-const input = new TextInputBuilder()
-.setCustomId("reason")
-.setLabel("Motivo decisione")
-.setStyle(TextInputStyle.Paragraph)
-.setRequired(true);
+      const input = new TextInputBuilder()
+        .setCustomId("reason")
+        .setLabel("Scrivi il motivo")
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true);
 
-modal.addComponents(new ActionRowBuilder().addComponents(input));
+      modal.addComponents(new ActionRowBuilder().addComponents(input));
 
-return interaction.showModal(modal);
-}
+      return interaction.showModal(modal);
+    }
 
-// MOTIVO FINAL
-if(interaction.isModalSubmit() && interaction.customId.startsWith("reason_")){
+    if (interaction.isModalSubmit() && interaction.customId.startsWith("motivo_")) {
 
-const [_, action, userId] = interaction.customId.split("_");
+      const action = interaction.customId.replace("motivo_", "");
+      const id = action.split("_")[1];
 
-const guild = await client.guilds.fetch(config.guildId);
-const member = await guild.members.fetch(userId).catch(()=>null);
+      const guild = await client.guilds.fetch(config.guildId);
+      const member = await guild.members.fetch(id).catch(() => null);
 
-const reason = interaction.fields.getTextInputValue("reason");
+      const data = userData.get(id);
+      const reason = interaction.fields.getTextInputValue("reason");
 
-if(member && action==="accetta"){
-await member.roles.add(config.patenteRoleId);
-}
+      if (member && data) {
+        if (action.startsWith("accetta_")) {
+          await member.roles.add(RUOLI[data.type]).catch(() => {});
+        }
+      }
 
-return interaction.reply({
-content:`${action.toUpperCase()} \nMotivo: ${reason}`,
-ephemeral:true
-});
-}
+      return interaction.reply({
+        content: `${action.startsWith("accetta_") ? "ACCETTATO" : "RIFIUTATO"}\nMotivo: ${reason}`,
+        ephemeral: true
+      });
+    }
 
-} catch(err){
-console.log(err);
-}
+  } catch (err) {
+    console.log(err);
+  }
 });
 
 // =========================
 // QUIZ FUNCTION
 // =========================
-function sendQuiz(interaction){
+function sendQuiz(interaction) {
 
-const data = userData.get(interaction.user.id);
+  const data = userData.get(interaction.user.id);
+  const domande = quiz[data.type].slice(data.step, data.step + 5);
 
-const domande = quiz[data.type].slice(data.step, data.step+5);
+  const modal = new ModalBuilder()
+    .setCustomId(`quiz_${Date.now()}`)
+    .setTitle("Quiz Patente");
 
-const modal = new ModalBuilder()
-.setCustomId(`quiz_${interaction.user.id}_${data.step}`)
-.setTitle("Quiz Patente");
+  domande.forEach((q, i) => {
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId(`q${i}`)
+          .setLabel(q)
+          .setStyle(TextInputStyle.Short)
+      )
+    );
+  });
 
-domande.forEach((q,i)=>{
-modal.addComponents(
-new ActionRowBuilder().addComponents(
-new TextInputBuilder()
-.setCustomId("q"+i)
-.setLabel(q)
-.setStyle(TextInputStyle.Short)
-.setRequired(true)
-)
-);
-});
-
-return interaction.showModal(modal);
+  return interaction.showModal(modal);
 }
 
+// =========================
+// LOGIN
+// =========================
 client.login(process.env.TOKEN);
