@@ -14,7 +14,12 @@ const {
 } = require("discord.js");
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ]
 });
 
 // CONFIG
@@ -34,52 +39,82 @@ const RUOLI = {
 const userData = new Map();
 let sent = false;
 
-// INFO (FIX RICHIESTO)
+// =========================
+// INFO (COME HAI CHIESTO IDENTICO)
+// =========================
 const INFO = `
-🏛️ Dipartimento Trasporti — Sud Italy RP
+•  🏛️ Dipartimento Trasporti — __Sud Italy RP__
 
-📋 Tipi patente:
-A → Moto
-B → Auto
-C-D → Camion/Bus
+Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
 
-📝 Procedura:
-1) Completa quiz
-2) Invia 3000$
-3) Carica screenshot
-4) Attendi staff
+━━━━━━━━━━━━━━━━━━
+📋Tipi di patente
+__🅰️ Patente A__
+Consente la guida di __motocicli__ e veicoli a due ruote.
+__🅱️ Patente B__
+Permette di guidare __autovetture__ e veicoli leggeri. 
+__🅲 Patente C-D__
+Permette di far guidare __camion__, __pullman__ o __autobus__, utili per il trasporto delle merci e delle persone.
+
+━━━━━━━━━━━━━━━━━━
+__📝Condizioni richieste__
+
+• Essere un __cittadino__ registrato e approvato all’interno del server  
+• Avere un __comportamento civile__ e rispettoso delle regole RP  
+• Non essere __soggetto__ a __sospensioni__ o provvedimenti attivi  
+• Dimostrare una __conoscenza adeguata__ delle norme di circolazione    
+
+━━━━━━━━━━━━━━━━━━
+⚠️ Il mancato rispetto dei requisiti comporterà il rifiuto automatico della richiesta.
 `;
 
-// QUIZ COMPLETO
+// QUIZ PIÙ LUNGO (COME VOLEVI)
 const quiz = {
   A: [
     "Casco obbligatorio?",
-    "Fari accesi sempre?",
+    "Fari sempre accesi?",
     "Rallentare in curva?",
     "Contromano permesso?",
-    "Frenata su bagnato aumenta?",
-    "Serve patente?"
+    "Frenata su bagnato?",
+    "Serve patente?",
+    "Uso cellulare consentito?",
+    "Limite città?",
+    "Sorpasso a destra?",
+    "Freno anteriore più forte?",
+    "Casco allacciato?",
+    "Distanza sicurezza?"
   ],
   B: [
     "Cintura obbligatoria?",
     "Semaforo rosso stop?",
     "Cellulare vietato?",
-    "Fari notte obbligatori?",
-    "Limite 130 autostrada?",
-    "Sorpasso linea continua?"
+    "Fari notte?",
+    "Limite autostrada?",
+    "Sorpasso linea continua?",
+    "Precedenza a destra?",
+    "Seggiolino bambini?",
+    "Parcheggio vietato segnalato?",
+    "Distanza sicurezza?",
+    "Uso clacson?",
+    "Guida distratta?"
   ],
   CD: [
     "Limite camion città?",
     "Ambulanza priorità?",
-    "Cos’è freno motore?",
+    "Freno motore cos’è?",
     "Distanza sicurezza?",
     "Parcheggio camion?",
-    "Segnale camion?"
+    "Segnale camion?",
+    "Carico massimo?",
+    "Uso tachigrafo?",
+    "Velocità autostrada?",
+    "Discesa lunga come si guida?"
   ]
 };
 
 // READY
 client.once("ready", async () => {
+
   console.log("BOT PRONTO");
 
   const ch = await client.channels.fetch(config.canaleRichieste);
@@ -131,18 +166,16 @@ client.on("interactionCreate", async (interaction) => {
     // SELECT
     if (interaction.isStringSelectMenu()) {
 
-      const type = interaction.values[0];
-
       userData.set(interaction.user.id, {
-        type,
+        type: interaction.values[0],
         step: 0,
         answers: []
       });
 
-      return sendModal(interaction);
+      return sendQuiz(interaction);
     }
 
-    // QUIZ MODAL
+    // QUIZ SUBMIT
     if (interaction.isModalSubmit() && interaction.customId.startsWith("quiz_")) {
 
       const data = userData.get(interaction.user.id);
@@ -150,77 +183,17 @@ client.on("interactionCreate", async (interaction) => {
       const risposte = Object.values(interaction.fields.fields).map(f => f.value);
 
       data.answers.push(...risposte);
-      data.step += 5;
+      data.step += 6;
 
       if (data.step >= quiz[data.type].length) {
 
-        const btn = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId("pay")
-            .setLabel("Carica pagamento 3000$")
-            .setStyle(ButtonStyle.Success)
-        );
-
         return interaction.reply({
-          content: "Quiz completato!",
-          components: [btn],
+          content: "📸 ORA INVIA IL PAGAMENTO (3K)\n\n👉 Carica il file immagine nel CANALE PRIVATO DEL BOT",
           ephemeral: true
         });
       }
 
-      return sendModal(interaction);
-    }
-
-    // PAY
-    if (interaction.isButton() && interaction.customId === "pay") {
-
-      const modal = new ModalBuilder()
-        .setCustomId("payment")
-        .setTitle("Pagamento");
-
-      const file = new TextInputBuilder()
-        .setCustomId("photo")
-        .setLabel("Carica SCREENSHOT (galleria Discord)")
-        .setStyle(TextInputStyle.Short);
-
-      modal.addComponents(new ActionRowBuilder().addComponents(file));
-
-      return interaction.showModal(modal);
-    }
-
-    // PAYMENT
-    if (interaction.isModalSubmit() && interaction.customId === "payment") {
-
-      const data = userData.get(interaction.user.id);
-
-      const staff = await client.channels.fetch(config.canaleStaff);
-
-      const embed = new EmbedBuilder()
-        .setColor("#0b3d91")
-        .setTitle("NUOVA PATENTE")
-        .setDescription(`
-👤 <@${interaction.user.id}>
-Tipo: ${data.type}
-
-Risposte:
-${data.answers.join("\n")}
-`)
-        .setImage(interaction.fields.getTextInputValue("photo"));
-
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId(`accetta_${interaction.user.id}`)
-          .setLabel("ACCETTA")
-          .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-          .setCustomId(`rifiuta_${interaction.user.id}`)
-          .setLabel("RIFIUTA")
-          .setStyle(ButtonStyle.Danger)
-      );
-
-      await staff.send({ embeds: [embed], components: [row] });
-
-      return interaction.reply({ content: "Inviato staff", ephemeral: true });
+      return sendQuiz(interaction);
     }
 
   } catch (e) {
@@ -228,11 +201,14 @@ ${data.answers.join("\n")}
   }
 });
 
-// MODAL GENERATORE
-function sendModal(interaction) {
+// =========================
+// QUIZ A BLOCCHI
+// =========================
+function sendQuiz(interaction) {
 
   const data = userData.get(interaction.user.id);
-  const domande = quiz[data.type].slice(data.step, data.step + 5);
+
+  const domande = quiz[data.type].slice(data.step, data.step + 6);
 
   const modal = new ModalBuilder()
     .setCustomId(`quiz_${data.step}`)
@@ -253,5 +229,7 @@ function sendModal(interaction) {
   return interaction.showModal(modal);
 }
 
+// =========================
 // LOGIN
+// =========================
 client.login(process.env.TOKEN);
