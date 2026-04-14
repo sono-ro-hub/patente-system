@@ -8,25 +8,11 @@ const {
   StringSelectMenuBuilder,
   ModalBuilder,
   TextInputBuilder,
-  TextInputStyle,
-  AttachmentBuilder
+  TextInputStyle
 } = require("discord.js");
 
 // =========================
-// EXPRESS (FIX RENDER PORT)
-// =========================
-const express = require("express");
-const app = express();
-
-app.get("/", (req, res) => {
-  res.send("Bot attivo");
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("Web server attivo su porta " + PORT));
-
-// =========================
-// CLIENT
+// CLIENT (WORKER SAFE - NO PORT)
 // =========================
 const client = new Client({
   intents: [
@@ -50,11 +36,14 @@ const RUOLI = {
   CD: "1493609213086142645"
 };
 
+// =========================
+// MEMORY
+// =========================
 const userData = new Map();
 let messaggioInviato = false;
 
 // =========================
-// INFO PATENTE + DIPARTIMENTO (COMPLETO)
+// INFO PATENTE (AGGIORNATA COMPLETA)
 // =========================
 const INFO_PATENTE = `
 🏛️ Dipartimento Trasporti — Sud Italy RP
@@ -66,7 +55,7 @@ Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza uf
 Consente la guida di motocicli e veicoli a due ruote.
 
 🅱️ Patente B
-Permette di guidare autovetture e veicoli leggeri. 
+Permette di guidare autovetture e veicoli leggeri.
 
 🅲 Patente C-D
 Permette di far guidare camion, pullman o autobus, utili per il trasporto delle merci e delle persone.
@@ -80,14 +69,14 @@ Permette di far guidare camion, pullman o autobus, utili per il trasporto delle 
 • Essere disponibile a sostenere sia una prova teorica che una pratica  
 
 ━━━━━━━━━━━━━━━━━━
-⚠️ Il mancato rispetto dei requisiti comporterà il rifiuto automatico della richiesta.
-
-━━━━━━━━━━━━━━━━━━
 📌 Procedura:
 1) Completa il quiz patente  
 2) Invia pagamento 3k a Lessimanuardi123  
 3) Carica screenshot pagamento  
 4) Attendi verifica staff  
+
+━━━━━━━━━━━━━━━━━━
+⚠️ Il mancato rispetto dei requisiti comporterà il rifiuto automatico della richiesta.
 `;
 
 // =========================
@@ -95,40 +84,57 @@ Permette di far guidare camion, pullman o autobus, utili per il trasporto delle 
 // =========================
 const quiz = {
   A: [
-    "1. Il casco è obbligatorio quando guidi la moto?",
-    "2. I fari devono essere accesi anche di giorno?",
-    "3. In curva bisogna rallentare prima di entrarci?",
-    "4. Posso guidare senza guanti?",
-    "5. Su strada bagnata, la frenata è più lunga?",
-    "6. Il freno anteriore è più potente del posteriore?",
-    "7. È vietato superare a destra?",
-    "8. Pneumatici lisci sono sicuri?",
-    "9. La freccia serve a indicare la direzione?",
-    "10. Il casco deve essere allacciato?"
+    "Il casco è obbligatorio quando guidi la moto?",
+    "I fari devono essere accesi anche di giorno?",
+    "In curva bisogna rallentare prima di entrarci?",
+    "Posso guidare senza guanti?",
+    "Su strada bagnata la frenata è più lunga?",
+    "Il freno anteriore è più potente?",
+    "È vietato superare a destra?",
+    "Pneumatici lisci sono sicuri?",
+    "La freccia è obbligatoria?",
+    "Il casco deve essere allacciato?",
+    "Posso guidare contromano?",
+    "Il limite urbano è 50 km/h?",
+    "Si può guidare senza patente?",
+    "Con pioggia aumenta distanza?",
+    "Il clacson è solo per emergenza?"
   ],
   B: [
-    "1. Il casco è obbligatorio in auto?",
-    "2. In città il limite è 50 km/h?",
-    "3. La cintura di sicurezza va sempre allacciata?",
-    "4. Posso sorpassare con linea continua?",
-    "5. Il semaforo rosso significa stop?",
-    "6. Posso usare telefono senza vivavoce?",
-    "7. I fari vanno accesi di notte?",
-    "8. I bambini devono stare nel seggiolino?"
+    "Il casco è obbligatorio in auto?",
+    "In città il limite è 50 km/h?",
+    "La cintura va sempre allacciata?",
+    "Posso sorpassare con linea continua?",
+    "La distanza di sicurezza serve?",
+    "Il semaforo rosso significa stop?",
+    "Posso usare il telefono senza vivavoce?",
+    "I fari vanno accesi di notte?",
+    "La frenata sul bagnato è più lunga?",
+    "I bambini devono usare seggiolini?",
+    "La precedenza a destra vale sempre?",
+    "Il parcheggio vietato è segnalato?",
+    "Il sorpasso a sinistra è obbligatorio?",
+    "Bisogna rispettare i limiti?",
+    "Autostrada limite 130 km/h?"
   ],
   CD: [
-    "1. Limite camion in città?",
-    "2. Cosa fai al semaforo rosso?",
-    "3. Chi ha precedenza?",
-    "4. Cos’è il freno motore?",
-    "5. Dove parcheggiano camion?"
+    "Limite camion in città?",
+    "Cosa fai al semaforo rosso?",
+    "Chi ha precedenza agli incroci?",
+    "Quando accendi anabbaglianti?",
+    "Come comportarsi con ambulanza?",
+    "Veicolo per più persone?",
+    "Cos’è distanza sicurezza?",
+    "Cos’è freno motore?",
+    "Dove parcheggiano camion?",
+    "Significato segnale camion?"
   ]
 };
 
 // =========================
-// READY
+// READY (NO PORT -> SAFE RENDER)
 // =========================
-client.once("clientReady", async () => {
+client.once("ready", async () => {
   console.log("BOT PRONTO");
 
   const ch = await client.channels.fetch(CANALE_RICHIESTE);
@@ -137,7 +143,7 @@ client.once("clientReady", async () => {
     const embed = new EmbedBuilder()
       .setColor("Green")
       .setTitle("📄 RICHIESTA PATENTE")
-      .setDescription(INFO_PATENTE);
+      .setDescription("Premi il bottone per iniziare");
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -152,9 +158,9 @@ client.once("clientReady", async () => {
 });
 
 // =========================
-// INTERACTION FIXED
+// INTERACTION SYSTEM (STABILE)
 // =========================
-client.on("interactionCreate", async (interaction) => {
+client.on("interactionCreate", async interaction => {
   try {
 
     // START
@@ -179,19 +185,53 @@ client.on("interactionCreate", async (interaction) => {
       return interaction.reply({ embeds: [embed], components: [menu], ephemeral: true });
     }
 
-    // SELECT
+    // SELECT PATENTE (START QUIZ)
     if (interaction.isStringSelectMenu()) {
+
       const type = interaction.values[0];
-      userData.set(interaction.user.id, { type });
+
+      userData.set(interaction.user.id, {
+        type,
+        step: 0,
+        answers: []
+      });
+
+      return showQuestion(interaction);
+    }
+
+    // QUIZ ANSWER
+    if (interaction.isModalSubmit() && interaction.customId === "quiz") {
+
+      const data = userData.get(interaction.user.id);
+      if (!data) return;
+
+      const answer = interaction.fields.getTextInputValue("answer");
+
+      data.answers.push({
+        q: quiz[data.type][data.step],
+        a: answer
+      });
+
+      data.step++;
+
+      if (data.step >= quiz[data.type].length) {
+        return finishQuiz(interaction, data);
+      }
+
+      return showQuestion(interaction);
+    }
+
+    // PAYMENT
+    if (interaction.isButton() && interaction.customId === "pay") {
 
       const modal = new ModalBuilder()
-        .setCustomId("quiz")
-        .setTitle("Quiz Patente");
+        .setCustomId("payment")
+        .setTitle("Pagamento");
 
       const input = new TextInputBuilder()
-        .setCustomId("answers")
-        .setLabel("Rispondi alle domande")
-        .setStyle(TextInputStyle.Paragraph)
+        .setCustomId("photo")
+        .setLabel("Link screenshot pagamento")
+        .setStyle(TextInputStyle.Short)
         .setRequired(true);
 
       modal.addComponents(new ActionRowBuilder().addComponents(input));
@@ -199,62 +239,27 @@ client.on("interactionCreate", async (interaction) => {
       return interaction.showModal(modal);
     }
 
-    // QUIZ
-    if (interaction.isModalSubmit() && interaction.customId === "quiz") {
+    // PAYMENT SUBMIT
+    if (interaction.isModalSubmit() && interaction.customId === "payment") {
 
       const data = userData.get(interaction.user.id);
       if (!data) return;
 
-      data.answers = interaction.fields.getTextInputValue("answers");
+      const photo = interaction.fields.getTextInputValue("photo");
 
-      const btn = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("pay")
-          .setLabel("📸 Carica pagamento")
-          .setStyle(ButtonStyle.Primary)
-      );
-
-      return interaction.reply({
-        content: "Ora invia UNO SCREENSHOT del pagamento in chat",
-        components: [btn],
-        ephemeral: true
-      });
-    }
-
-    // PAY
-    if (interaction.isButton() && interaction.customId === "pay") {
-
-      await interaction.reply({
-        content: "📤 Invia ora lo screenshot del pagamento qui in chat (file immagine)",
-        ephemeral: true
-      });
-
-      const filter = m => m.author.id === interaction.user.id && m.attachments.size > 0;
-
-      const collected = await interaction.channel.awaitMessages({
-        filter,
-        max: 1,
-        time: 60000
-      });
-
-      if (!collected.size) return;
-
-      const msg = collected.first();
-      const photo = msg.attachments.first().url;
-
-      const data = userData.get(interaction.user.id);
       const staff = await client.channels.fetch(CANALE_STAFF);
 
       const embed = new EmbedBuilder()
         .setColor("Green")
         .setTitle("📄 NUOVA PATENTE")
-        .setDescription(`
-👤 Utente: <@${interaction.user.id}>
+        .setDescription(
+          `👤 Utente: <@${interaction.user.id}>
 🏷️ Tipo: ${data.type}
 
 📋 RISPOSTE:
-${data.answers}
-`)
+` +
+          data.answers.map((x, i) => `${i + 1}. ${x.q}\n➡️ ${x.a}`).join("\n\n")
+        )
         .setImage(photo);
 
       const row = new ActionRowBuilder().addComponents(
@@ -270,10 +275,13 @@ ${data.answers}
 
       await staff.send({ embeds: [embed], components: [row] });
 
-      return;
+      return interaction.reply({
+        content: "✔ Richiesta inviata allo staff",
+        ephemeral: true
+      });
     }
 
-    // STAFF
+    // STAFF ACTION
     if (
       interaction.isButton() &&
       (interaction.customId.startsWith("accetta_") ||
@@ -286,13 +294,11 @@ ${data.answers}
       const guild = await client.guilds.fetch(GUILD_ID);
       const member = await guild.members.fetch(id).catch(() => null);
 
-      if (!member) return;
-
-      const tipo = userData.get(id)?.type;
+      const data = userData.get(id);
 
       if (interaction.customId.startsWith("accetta_")) {
-        if (tipo && RUOLI[tipo]) {
-          await member.roles.add(RUOLI[tipo]).catch(() => {});
+        if (member && data?.type && RUOLI[data.type]) {
+          await member.roles.add(RUOLI[data.type]);
         }
       }
 
@@ -308,5 +314,57 @@ ${data.answers}
     console.log("ERROR:", err);
   }
 });
+
+// =========================
+// QUIZ FUNCTION (STEP SYSTEM)
+// =========================
+async function showQuestion(interaction) {
+  const data = userData.get(interaction.user.id);
+
+  const domanda = quiz[data.type][data.step];
+
+  const modal = new ModalBuilder()
+    .setCustomId("quiz")
+    .setTitle(`Domanda ${data.step + 1}`);
+
+  const input = new TextInputBuilder()
+    .setCustomId("answer")
+    .setLabel(domanda)
+    .setStyle(TextInputStyle.Paragraph)
+    .setRequired(true);
+
+  modal.addComponents(new ActionRowBuilder().addComponents(input));
+
+  return interaction.showModal(modal);
+}
+
+// =========================
+// FINISH QUIZ
+// =========================
+async function finishQuiz(interaction, data) {
+
+  const text = data.answers
+    .map((x, i) => `${i + 1}. ${x.q}\n➡️ ${x.a}`)
+    .join("\n\n");
+
+  const btn = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("pay")
+      .setLabel("📸 Carica pagamento (OBBLIGATORIO)")
+      .setStyle(ButtonStyle.Danger)
+  );
+
+  return interaction.reply({
+    content: "✔ Quiz completato. Ora procedi al pagamento.",
+    embeds: [
+      new EmbedBuilder()
+        .setTitle("RISULTATI QUIZ")
+        .setDescription(text)
+        .setColor("Blue")
+    ],
+    components: [btn],
+    ephemeral: true
+  });
+}
 
 client.login(process.env.TOKEN);
