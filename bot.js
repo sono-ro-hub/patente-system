@@ -40,7 +40,7 @@ const userData = new Map();
 let messaggioInviato = false;
 
 // =========================
-// INFORMAZIONI PATENTE (COME VOLEVI TU)
+// INFORMAZIONI PATENTE
 // =========================
 const INFO_PATENTE = `
 __**INFORMAZIONI PATENTE**__
@@ -55,7 +55,7 @@ __**INFORMAZIONI PATENTE**__
 `;
 
 // =========================
-// QUIZ COMPLETI (NON SEMPLIFICATI)
+// QUIZ
 // =========================
 const quiz = {
   A: [
@@ -75,7 +75,6 @@ const quiz = {
     "14. In caso di pioggia devo aumentare la distanza di sicurezza?",
     "15. Il clacson va usato solo per avvertire pericolo?"
   ],
-
   B: [
     "1. Il casco è obbligatorio in auto?",
     "2. In città il limite è 50 km/h?",
@@ -93,7 +92,6 @@ const quiz = {
     "14. Il conducente deve rispettare i limiti?",
     "15. In autostrada il limite è 130 km/h?"
   ],
-
   CD: [
     "1. Qual è il limite di velocità per camion in città?",
     "2. Cosa fai al semaforo rosso?",
@@ -109,7 +107,7 @@ const quiz = {
 };
 
 // =========================
-// READY (SOLO 1 VOLTA)
+// READY
 // =========================
 client.once("ready", async () => {
   console.log("BOT PRONTO");
@@ -135,13 +133,11 @@ client.once("ready", async () => {
 });
 
 // =========================
-// INTERACTION MANAGER
+// INTERACTIONS
 // =========================
 client.on("interactionCreate", async interaction => {
 
-  // =========================
-  // START BUTTON
-  // =========================
+  // START
   if (interaction.isButton() && interaction.customId === "start") {
 
     const embed = new EmbedBuilder()
@@ -163,40 +159,37 @@ client.on("interactionCreate", async interaction => {
     return interaction.reply({ embeds: [embed], components: [menu], ephemeral: true });
   }
 
-  // =========================
-  // SELECT PATENTE
-  // =========================
+  // SELECT
   if (interaction.isStringSelectMenu()) {
 
-    const type = interaction.values[0];
+    try {
+      const type = interaction.values[0];
 
-    userData.set(interaction.user.id, { type });
+      userData.set(interaction.user.id, { type });
 
-    const domande = quiz[type];
+      const domande = quiz[type];
 
-    const embed = new EmbedBuilder()
-      .setColor("Green")
-      .setTitle("📋 QUIZ PATENTE")
-      .setDescription(domande.join("\n"));
+      const modal = new ModalBuilder()
+        .setCustomId("quiz")
+        .setTitle("Quiz Patente");
 
-    const modal = new ModalBuilder()
-      .setCustomId("quiz")
-      .setTitle("Quiz Patente");
+      const input = new TextInputBuilder()
+        .setCustomId("answers")
+        .setLabel("Rispondi a TUTTE le domande")
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true);
 
-    const input = new TextInputBuilder()
-      .setCustomId("answers")
-      .setLabel("Rispondi a TUTTE le domande")
-      .setStyle(TextInputStyle.Paragraph)
-      .setRequired(true);
+      modal.addComponents(new ActionRowBuilder().addComponents(input));
 
-    modal.addComponents(new ActionRowBuilder().addComponents(input));
+      return await interaction.showModal(modal);
 
-    return interaction.showModal(modal);
+    } catch (err) {
+      console.log("Errore showModal:", err);
+      return;
+    }
   }
 
-  // =========================
-  // QUIZ SUBMIT
-  // =========================
+  // QUIZ
   if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
     const data = userData.get(interaction.user.id);
@@ -207,20 +200,18 @@ client.on("interactionCreate", async interaction => {
     const btn = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("pay")
-        .setLabel("📸 Carica pagamento (foto)")
+        .setLabel("📸 Carica pagamento")
         .setStyle(ButtonStyle.Primary)
     );
 
     return interaction.reply({
-      content: "Ora carica la FOTO del pagamento (NO link)",
+      content: "Carica la foto del pagamento",
       components: [btn],
       ephemeral: true
     });
   }
 
-  // =========================
-  // PAYMENT BUTTON
-  // =========================
+  // PAY BUTTON
   if (interaction.isButton() && interaction.customId === "pay") {
 
     const modal = new ModalBuilder()
@@ -229,7 +220,7 @@ client.on("interactionCreate", async interaction => {
 
     const input = new TextInputBuilder()
       .setCustomId("photo")
-      .setLabel("Incolla LINK immagine (discord upload)")
+      .setLabel("LINK immagine (upload discord)")
       .setStyle(TextInputStyle.Short)
       .setRequired(true);
 
@@ -238,9 +229,7 @@ client.on("interactionCreate", async interaction => {
     return interaction.showModal(modal);
   }
 
-  // =========================
-  // PAYMENT SUBMIT
-  // =========================
+  // PAYMENT
   if (interaction.isModalSubmit() && interaction.customId === "payment") {
 
     const data = userData.get(interaction.user.id);
@@ -267,7 +256,6 @@ ${data.answers}
         .setCustomId(`accetta_${interaction.user.id}`)
         .setLabel("ACCETTA")
         .setStyle(ButtonStyle.Success),
-
       new ButtonBuilder()
         .setCustomId(`rifiuta_${interaction.user.id}`)
         .setLabel("RIFIUTA")
@@ -279,15 +267,14 @@ ${data.answers}
     return interaction.reply({ content: "Inviato allo staff", ephemeral: true });
   }
 
-  // =========================
-  // STAFF BUTTON FIX (IMPORTANTE)
-  // =========================
+  // STAFF
   if (
     interaction.isButton() &&
-    (interaction.customId.startsWith("accetta_") || interaction.customId.startsWith("rifiuta_"))
+    (interaction.customId.startsWith("accetta_") ||
+     interaction.customId.startsWith("rifiuta_"))
   ) {
 
-    await interaction.deferUpdate(); // 🔥 FIX ERRORE 10062
+    await interaction.deferUpdate();
 
     const id = interaction.customId.split("_")[1];
     const member = await interaction.guild.members.fetch(id);
@@ -295,19 +282,15 @@ ${data.answers}
     const tipo = userData.get(id)?.type;
 
     if (interaction.customId.startsWith("accetta_")) {
-
       if (tipo && RUOLI[tipo]) {
         await member.roles.add(RUOLI[tipo]);
       }
-
-      return interaction.editReply({
-        content: `✅ ACCETTATO da ${interaction.user.tag}`,
-        components: []
-      });
     }
 
     return interaction.editReply({
-      content: `❌ RIFIUTATO da ${interaction.user.tag}`,
+      content: interaction.customId.startsWith("accetta_")
+        ? `✅ ACCETTATO da ${interaction.user.tag}`
+        : `❌ RIFIUTATO da ${interaction.user.tag}`,
       components: []
     });
   }
