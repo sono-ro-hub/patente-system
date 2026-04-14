@@ -54,7 +54,7 @@ const userData = new Map();
 let sent = false;
 
 // =========================
-// INFO PRINCIPALE
+// INFO PATENTE (BLUE STYLE)
 // =========================
 const INFO = `
 • 🏛️ Dipartimento Trasporti — Sud Italy RP
@@ -62,31 +62,31 @@ const INFO = `
 Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
 
 ━━━━━━━━━━━━━━━━━━
-📋Tipi di patente
+📋 Tipi di patente
 🅰️ Patente A → Moto
 🅱️ Patente B → Auto
 🅲 Patente C-D → Camion/Bus
 
 ━━━━━━━━━━━━━━━━━━
-📝Condizioni richieste
-• Essere cittadino registrato  
-• Comportamento civile  
-• Nessuna sospensione  
-• Conoscenza base regole  
+📝 Condizioni richieste
+• Essere cittadino registrato
+• Comportamento civile RP
+• Nessuna sospensione attiva
+• Conoscenza regole base
 
 ━━━━━━━━━━━━━━━━━━
 ⚠️ Il mancato rispetto comporta rifiuto automatico
 `;
 
 // =========================
-// INFO DOPO SCELTA
+// STEP INFO
 // =========================
 const INFO_STEP = `
-__INFORMAZIONI PATENTE__
+__**INFORMAZIONI PATENTE**__
 
 1) Completa il quiz  
 2) Invia 3000 a Lessimanuardi123  
-3) Carica screenshot  
+3) Carica screenshot pagamento (FILE NON LINK)  
 4) Attendi staff  
 
 ⚠️ Senza patente = multa 1k
@@ -100,7 +100,7 @@ const quiz = {
     "Casco obbligatorio?",
     "Fari di giorno?",
     "Rallentare in curva?",
-    "Si può guidare senza patente?",
+    "Guida senza patente?",
     "Strada bagnata = frenata lunga?",
     "Contromano permesso?",
     "Freccia obbligatoria?",
@@ -187,7 +187,7 @@ client.on("interactionCreate", async (interaction) => {
       return interaction.reply({ embeds: [embed], components: [menu], ephemeral: true });
     }
 
-    // SELECT
+    // SELECT PATENTE
     if (interaction.isStringSelectMenu()) {
 
       const type = interaction.values[0];
@@ -199,19 +199,30 @@ client.on("interactionCreate", async (interaction) => {
         awaitingPhoto: false
       });
 
-      await interaction.reply({
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("start_quiz")
+          .setLabel("📄 Inizia Quiz")
+          .setStyle(ButtonStyle.Success)
+      );
+
+      return interaction.reply({
         content: INFO_STEP,
+        components: [row],
         ephemeral: true
       });
+    }
 
+    // START QUIZ BUTTON
+    if (interaction.isButton() && interaction.customId === "start_quiz") {
       return sendQuiz(interaction, interaction.user.id);
     }
 
-    // QUIZ
+    // QUIZ SUBMIT
     if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
       const data = userData.get(interaction.user.id);
-      const risposte = interaction.fields.fields.map(f => f.value);
+      const risposte = Object.values(interaction.fields.fields).map(f => f.value);
 
       data.answers.push(...risposte);
       data.step += 5;
@@ -221,7 +232,7 @@ client.on("interactionCreate", async (interaction) => {
         data.awaitingPhoto = true;
 
         return interaction.reply({
-          content: "📸 Invia lo screenshot pagamento (dalla galleria QUI)",
+          content: "📸 Ora carica lo SCREENSHOT del pagamento (FILE dalla galleria)",
           ephemeral: true
         });
 
@@ -237,7 +248,7 @@ client.on("interactionCreate", async (interaction) => {
 });
 
 // =========================
-// FOTO (ALLEGATO)
+// UPLOAD FOTO (NO LINK)
 // =========================
 client.on("messageCreate", async (msg) => {
 
@@ -246,7 +257,9 @@ client.on("messageCreate", async (msg) => {
   const data = userData.get(msg.author.id);
   if (!data || !data.awaitingPhoto) return;
 
-  if (!msg.attachments.size) return msg.reply("❌ Devi caricare una FOTO dalla galleria!");
+  if (!msg.attachments.size) {
+    return msg.reply("❌ Devi caricare una FOTO dalla galleria (file upload)!");
+  }
 
   const staff = await client.channels.fetch(CANALE_STAFF);
 
@@ -257,7 +270,7 @@ client.on("messageCreate", async (msg) => {
 👤 <@${msg.author.id}>
 Tipo: ${data.type}
 
-💰 Pagamento richiesto: 3000
+💰 Pagamento: 3000
 
 📋 Risposte:
 ${data.answers.join("\n")}
@@ -283,7 +296,34 @@ ${data.answers.join("\n")}
 });
 
 // =========================
-// STAFF + MOTIVO
+// QUIZ FUNCTION (5 DOMANDE A BLOCCHI)
+// =========================
+function sendQuiz(interaction, userId) {
+
+  const data = userData.get(userId);
+  const domande = quiz[data.type].slice(data.step, data.step + 5);
+
+  const modal = new ModalBuilder()
+    .setCustomId("quiz")
+    .setTitle("Quiz Patente");
+
+  domande.forEach((q, i) => {
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId(`q${i}`)
+          .setLabel(q)
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true)
+      )
+    );
+  });
+
+  return interaction.showModal(modal);
+}
+
+// =========================
+// STAFF MOTIVO + RUOLO AUTOMATICO
 // =========================
 client.on("interactionCreate", async (interaction) => {
 
@@ -309,7 +349,7 @@ client.on("interactionCreate", async (interaction) => {
 });
 
 // =========================
-// MOTIVO + RUOLO
+// MOTIVO HANDLER
 // =========================
 client.on("interactionCreate", async (interaction) => {
 
@@ -337,33 +377,6 @@ client.on("interactionCreate", async (interaction) => {
   }
 
 });
-
-// =========================
-// FUNZIONE QUIZ
-// =========================
-function sendQuiz(interaction, userId) {
-
-  const data = userData.get(userId);
-  const domande = quiz[data.type].slice(data.step, data.step + 5);
-
-  const modal = new ModalBuilder()
-    .setCustomId("quiz")
-    .setTitle(`Quiz (${data.step}/${quiz[data.type].length})`);
-
-  domande.forEach((d, i) => {
-    modal.addComponents(
-      new ActionRowBuilder().addComponents(
-        new TextInputBuilder()
-          .setCustomId(`q${i}`)
-          .setLabel(d)
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true)
-      )
-    );
-  });
-
-  return interaction.showModal(modal);
-}
 
 // =========================
 // LOGIN
