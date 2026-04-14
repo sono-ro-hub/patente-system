@@ -12,15 +12,23 @@ const {
 } = require("discord.js");
 
 const config = require("./config.json");
-const staffHandler = require("./handlers/staff");
 
+// =========================
+// CLIENT
+// =========================
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers
-  ]
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.MessageContent
+  ],
+  partials: ["CHANNEL"]
 });
 
+// =========================
+// MEMORY
+// =========================
 const userData = new Map();
 let sent = false;
 
@@ -37,73 +45,76 @@ Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza uf
 Consente la guida di motocicli e veicoli a due ruote.
 
 🅱️ Patente B
-Permette di guidare autovetture e veicoli leggeri.
+Permette di guidare autovetture e veicoli leggeri. 
 
 🅲 Patente C-D
-Permette camion, pullman e autobus.
+Permette di far guidare camion, pullman o autobus.
 
 ━━━━━━━━━━━━━━━━━━
 📝 Condizioni richieste
-• Cittadino registrato nel server  
-• Comportamento civile RP  
-• Nessuna sanzione attiva  
-• Conoscenza base codice stradale  
-• Esame teorico + pratico
+• cittadino registrato nel server  
+• comportamento civile RP  
+• nessuna sospensione attiva  
+• conoscenza regole circolazione  
+• esame teorico + pratico  
 
 ━━━━━━━━━━━━━━━━━━
 📌 Procedura:
-1) Quiz patente  
-2) Pagamento 3k a Lessimanuardi123  
-3) Screenshot pagamento  
-4) Attesa staff
+1) Completa quiz patente  
+2) Invia 3k a Lessimanuardi123  
+3) Carica screenshot pagamento  
+4) Attendi staff
 `;
 
 // =========================
-// QUIZ
+// QUIZ COMPLETO
 // =========================
 const quiz = {
   A: [
-    "Casco obbligatorio moto?",
-    "Fari anche di giorno?",
-    "Rallentare in curva?",
-    "Guidare senza patente?",
-    "Pioggia = più distanza?",
-    "Freno anteriore più forte?",
-    "Superare a destra?",
-    "Pneumatici lisci ok?",
-    "Frecce obbligatorie?",
-    "Casco allacciato?",
-    "Contromano permesso?",
-    "Limite città 50?",
+    "Il casco è obbligatorio quando guidi la moto?",
+    "I fari devono essere accesi anche di giorno?",
+    "In curva bisogna rallentare prima?",
+    "Posso guidare senza guanti?",
+    "Su strada bagnata la frenata aumenta?",
+    "Il freno anteriore è più forte?",
+    "Si può superare a destra?",
+    "Pneumatici lisci sono sicuri?",
+    "Le frecce servono?",
+    "Casco va allacciato?",
+    "Contromano è permesso?",
+    "Limite città 50km/h?",
+    "Guidare senza patente è legale?",
+    "Pioggia aumenta distanza?",
     "Clacson solo emergenza?"
   ],
   B: [
-    "Cintura obbligatoria?",
-    "Semaforo rosso stop?",
+    "Cintura sempre obbligatoria?",
+    "Semaforo rosso = stop?",
     "Cellulare senza vivavoce?",
-    "Fari notte obbligatori?",
-    "Linea continua sorpasso?",
-    "Autostrada 130?",
+    "Fari di notte obbligatori?",
+    "Sorpasso con linea continua?",
+    "Limite autostrada 130?",
     "Seggiolino bambini?",
-    "Precedenza destra?",
+    "Precedenza a destra?",
     "Parcheggio vietato segnalato?",
-    "Distanza sicurezza?",
-    "Sorpasso sempre sinistra?"
+    "Distanza sicurezza serve?",
+    "Sorpasso sempre a sinistra?",
+    "Rispettare limiti?"
   ],
   CD: [
-    "Limite camion città?",
-    "Rosso cosa fai?",
-    "Ambulanza priorità?",
-    "Freno motore cos’è?",
+    "Limite camion in città?",
+    "Cosa fai al rosso?",
+    "Ambulanza ha priorità?",
+    "Cos’è freno motore?",
     "Dove parcheggi camion?",
     "Segnale camion?",
-    "Distanza sicurezza?",
-    "Anabbaglianti quando?"
+    "Distanza sicurezza minima?",
+    "Quando accendi luci?"
   ]
 };
 
 // =========================
-// READY (FIX RENDER NO PORT)
+// READY
 // =========================
 client.once("ready", async () => {
   console.log("BOT PRONTO");
@@ -129,7 +140,7 @@ client.once("ready", async () => {
 });
 
 // =========================
-// INTERACTIONS
+// QUIZ START
 // =========================
 client.on("interactionCreate", async (interaction) => {
   try {
@@ -139,72 +150,66 @@ client.on("interactionCreate", async (interaction) => {
 
       const embed = new EmbedBuilder()
         .setColor("Green")
-        .setTitle("🏛️ Dipartimento Trasporti — Sud Italy RP")
+        .setTitle("📄 INFORMAZIONI PATENTE")
         .setDescription(INFO_PATENTE);
 
-      const menu = new ActionRowBuilder().addComponents(
-        new StringSelectMenuBuilder()
-          .setCustomId("select")
-          .setPlaceholder("Seleziona patente")
-          .addOptions([
-            { label: "Patente A", value: "A" },
-            { label: "Patente B", value: "B" },
-            { label: "Patente C-D", value: "CD" }
-          ])
-      );
-
-      return interaction.reply({ embeds: [embed], components: [menu], ephemeral: true });
-    }
-
-    // SELECT → QUIZ VISIBILE (DOMANDE + RISPOSTE)
-    if (interaction.isStringSelectMenu()) {
-
-      const type = interaction.values[0];
-      userData.set(interaction.user.id, { type });
-
-      const domande = quiz[type];
-
-      let formatted = domande.map((q, i) =>
-        `**${i + 1}) ${q}**\n✍️ Risposta:`
-      ).join("\n\n");
-
-      const modal = new ModalBuilder()
-        .setCustomId("quiz")
-        .setTitle("Quiz Patente");
-
-      const input = new TextInputBuilder()
-        .setCustomId("answers")
-        .setLabel("Rispondi a tutte le domande")
-        .setStyle(TextInputStyle.Paragraph)
-        .setRequired(true)
-        .setValue(formatted);
-
-      modal.addComponents(new ActionRowBuilder().addComponents(input));
-
-      return interaction.showModal(modal);
-    }
-
-    // QUIZ
-    if (interaction.isModalSubmit() && interaction.customId === "quiz") {
-
-      const data = userData.get(interaction.user.id);
-      data.answers = interaction.fields.getTextInputValue("answers");
-
-      const btn = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("pay")
-          .setLabel("Carica pagamento OBBLIGATORIO")
-          .setStyle(ButtonStyle.Primary)
-      );
+      const menu = new StringSelectMenuBuilder()
+        .setCustomId("select")
+        .setPlaceholder("Seleziona patente")
+        .addOptions([
+          { label: "Patente A", value: "A" },
+          { label: "Patente B", value: "B" },
+          { label: "Patente C-D", value: "CD" }
+        ]);
 
       return interaction.reply({
-        content: "Ora carica lo screenshot del pagamento (3k)",
-        components: [btn],
+        embeds: [embed],
+        components: [new ActionRowBuilder().addComponents(menu)],
         ephemeral: true
       });
     }
 
-    // PAY
+    // SELECT → START DM QUIZ
+    if (interaction.isStringSelectMenu()) {
+
+      const type = interaction.values[0];
+
+      userData.set(interaction.user.id, {
+        type,
+        step: 0,
+        answers: []
+      });
+
+      await interaction.reply({
+        content: "📩 Controlla i DM per il quiz!",
+        ephemeral: true
+      });
+
+      const dm = await interaction.user.createDM();
+      await dm.send(`🏛️ Inizio quiz patente (${type})`);
+      await dm.send(quiz[type][0]);
+    }
+
+    // DM ANSWERS (QUIZ FLOW)
+    if (interaction.channel?.type === 1) {
+      const data = userData.get(interaction.user.id);
+      if (!data) return;
+
+      const q = quiz[data.type];
+
+      data.answers.push(interaction.content);
+      data.step++;
+
+      if (data.step < q.length) {
+        return interaction.channel.send(q[data.step]);
+      }
+
+      return interaction.channel.send(
+        "📸 Quiz completato!\nOra invia lo screenshot del pagamento 3k."
+      );
+    }
+
+    // PAYMENT SUBMIT (SEMPLIFICATO)
     if (interaction.isButton() && interaction.customId === "pay") {
 
       const modal = new ModalBuilder()
@@ -222,7 +227,7 @@ client.on("interactionCreate", async (interaction) => {
       return interaction.showModal(modal);
     }
 
-    // PAYMENT
+    // SEND TO STAFF
     if (interaction.isModalSubmit() && interaction.customId === "payment") {
 
       const data = userData.get(interaction.user.id);
@@ -231,14 +236,14 @@ client.on("interactionCreate", async (interaction) => {
 
       const embed = new EmbedBuilder()
         .setColor("Green")
-        .setTitle("📄 NUOVA RICHIESTA PATENTE")
-        .setDescription(`
-👤 Utente: <@${interaction.user.id}>
+        .setTitle("📄 NUOVA PATENTE")
+        .setDescription(
+`👤 <@${interaction.user.id}>
 🏷️ Tipo: ${data.type}
 
 📋 RISPOSTE:
-${data.answers}
-`)
+${data.answers.join("\n")}`
+        )
         .setImage(interaction.fields.getTextInputValue("photo"));
 
       const row = new ActionRowBuilder().addComponents(
@@ -252,13 +257,7 @@ ${data.answers}
           .setStyle(ButtonStyle.Danger)
       );
 
-      const msg = await staff.send({ embeds: [embed], components: [row] });
-
-      // FIX IMPORTANTISSIMO: salviamo messageId per staff handler
-      userData.set(interaction.user.id, {
-        ...data,
-        messageId: msg.id
-      });
+      await staff.send({ embeds: [embed], components: [row] });
 
       return interaction.reply({
         content: "Inviato allo staff",
@@ -266,7 +265,58 @@ ${data.answers}
       });
     }
 
-    await staffHandler(interaction, client, config, userData);
+    // STAFF MOTIVO OBBLIGATORIO
+    if (interaction.isButton() &&
+      (interaction.customId.startsWith("accetta_") ||
+       interaction.customId.startsWith("rifiuta_"))) {
+
+      const modal = new ModalBuilder()
+        .setCustomId(interaction.customId)
+        .setTitle("Motivo obbligatorio");
+
+      const input = new TextInputBuilder()
+        .setCustomId("reason")
+        .setLabel("Scrivi il motivo")
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true);
+
+      modal.addComponents(new ActionRowBuilder().addComponents(input));
+
+      return interaction.showModal(modal);
+    }
+
+    // STAFF FINAL
+    if (interaction.isModalSubmit() &&
+      (interaction.customId.startsWith("accetta_") ||
+       interaction.customId.startsWith("rifiuta_"))) {
+
+      const userId = interaction.customId.split("_")[1];
+      const reason = interaction.fields.getTextInputValue("reason");
+
+      const guild = await client.guilds.fetch(config.guildId);
+      const member = await guild.members.fetch(userId).catch(() => null);
+
+      const ok = interaction.customId.startsWith("accetta_");
+
+      if (ok && member) {
+        await member.roles.add(config.patenteRoleId).catch(() => {});
+      }
+
+      const user = await client.users.fetch(userId).catch(() => null);
+
+      if (user) {
+        await user.send(
+          ok
+            ? `✅ Patente APPROVATA\nMotivo: ${reason}`
+            : `❌ Patente RIFIUTATA\nMotivo: ${reason}`
+        );
+      }
+
+      return interaction.reply({
+        content: ok ? "Accettato" : "Rifiutato",
+        ephemeral: true
+      });
+    }
 
   } catch (err) {
     console.log("ERROR:", err);
