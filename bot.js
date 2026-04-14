@@ -8,8 +8,22 @@ const {
   StringSelectMenuBuilder,
   ModalBuilder,
   TextInputBuilder,
-  TextInputStyle
+  TextInputStyle,
+  AttachmentBuilder
 } = require("discord.js");
+
+// =========================
+// EXPRESS (FIX RENDER PORT)
+// =========================
+const express = require("express");
+const app = express();
+
+app.get("/", (req, res) => {
+  res.send("Bot attivo");
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log("Web server attivo su porta " + PORT));
 
 // =========================
 // CLIENT
@@ -18,6 +32,7 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers
   ]
 });
@@ -39,18 +54,40 @@ const userData = new Map();
 let messaggioInviato = false;
 
 // =========================
-// INFORMAZIONI PATENTE
+// INFO PATENTE + DIPARTIMENTO (COMPLETO)
 // =========================
 const INFO_PATENTE = `
-__**INFORMAZIONI PATENTE**__
+🏛️ Dipartimento Trasporti — Sud Italy RP
 
-***Ecco alcuni step per fare la patente in maniera corretta***
+Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
 
-**1) Inviare il quiz per la patente che volete fare e attendere che lo staff member lo corregga***
+━━━━━━━━━━━━━━━━━━
+🅰️ Patente A
+Consente la guida di motocicli e veicoli a due ruote.
 
-**2)Inviare 3k in game all'id **Lessimanuardi123** e inviare la foto sul bot dove darà l'opzione**** ***e attendere che lo staff member applichi la tipologia di patente desiderata***
+🅱️ Patente B
+Permette di guidare autovetture e veicoli leggeri. 
 
-**3) Invitiamo tutti a fare la patente per viaggiare in maniera sicura e in maniera indipendente, Il consiglio che possiamo è quando vi ferma un agente delle FDO per una controllo dovete fornire il nome discord e per vedere se avete la tipologia di patente per la quale state usando il veicolo se vi vedranno senza patente dovrete pagare __**1k di multa**__
+🅲 Patente C-D
+Permette di far guidare camion, pullman o autobus, utili per il trasporto delle merci e delle persone.
+
+━━━━━━━━━━━━━━━━━━
+📝 Condizioni richieste
+• Essere un cittadino registrato e approvato all’interno del server  
+• Avere un comportamento civile e rispettoso delle regole RP  
+• Non essere soggetto a sospensioni o provvedimenti attivi  
+• Dimostrare una conoscenza adeguata delle norme di circolazione  
+• Essere disponibile a sostenere sia una prova teorica che una pratica  
+
+━━━━━━━━━━━━━━━━━━
+⚠️ Il mancato rispetto dei requisiti comporterà il rifiuto automatico della richiesta.
+
+━━━━━━━━━━━━━━━━━━
+📌 Procedura:
+1) Completa il quiz patente  
+2) Invia pagamento 3k a Lessimanuardi123  
+3) Carica screenshot pagamento  
+4) Attendi verifica staff  
 `;
 
 // =========================
@@ -66,111 +103,84 @@ const quiz = {
     "6. Il freno anteriore è più potente del posteriore?",
     "7. È vietato superare a destra?",
     "8. Pneumatici lisci sono sicuri?",
-    "9. La freccia serve a indicare la direzione e i sorpassi?",
-    "10. Il casco deve essere allacciato durante la guida?",
-    "11. Posso guidare contromano in città?",
-    "12. La velocità massima in città è di solito 50 km/h?",
-    "13. Guidare senza patente è permesso?",
-    "14. In caso di pioggia devo aumentare la distanza di sicurezza?",
-    "15. Il clacson va usato solo per avvertire pericolo?"
+    "9. La freccia serve a indicare la direzione?",
+    "10. Il casco deve essere allacciato?"
   ],
   B: [
     "1. Il casco è obbligatorio in auto?",
     "2. In città il limite è 50 km/h?",
-    "3. La cintura di sicurezza va allacciata sempre?",
+    "3. La cintura di sicurezza va sempre allacciata?",
     "4. Posso sorpassare con linea continua?",
-    "5. La distanza di sicurezza serve a fermarsi in tempo?",
-    "6. Il semaforo rosso significa fermo?",
-    "7. Posso usare il cellulare senza vivavoce mentre guido?",
-    "8. I fari vanno accesi di notte?",
-    "9. La frenata su strada bagnata è più lunga?",
-    "10. I bambini devono essere su seggiolini?",
-    "11. La precedenza a destra vale sempre?",
-    "12. Il parcheggio vietato è segnalato?",
-    "13. Il sorpasso a sinistra è sempre obbligatorio?",
-    "14. Il conducente deve rispettare i limiti?",
-    "15. In autostrada il limite è 130 km/h?"
+    "5. Il semaforo rosso significa stop?",
+    "6. Posso usare telefono senza vivavoce?",
+    "7. I fari vanno accesi di notte?",
+    "8. I bambini devono stare nel seggiolino?"
   ],
   CD: [
-    "1. Qual è il limite di velocità per camion in città?",
+    "1. Limite camion in città?",
     "2. Cosa fai al semaforo rosso?",
-    "3. Chi ha precedenza agli incroci?",
-    "4. Quando accendi luci anabbaglianti?",
-    "5. Come ti comporti con ambulanza?",
-    "6. Qual è il veicolo per più persone?",
-    "7. Distanza minima di sicurezza?",
-    "8. Cos’è il freno motore?",
-    "9. Dove puoi parcheggiare camion?",
-    "10. Cosa significa segnale camion?"
+    "3. Chi ha precedenza?",
+    "4. Cos’è il freno motore?",
+    "5. Dove parcheggiano camion?"
   ]
 };
 
 // =========================
 // READY
 // =========================
-client.once("ready", async () => {
+client.once("clientReady", async () => {
   console.log("BOT PRONTO");
 
-  try {
-    const ch = await client.channels.fetch(CANALE_RICHIESTE);
+  const ch = await client.channels.fetch(CANALE_RICHIESTE);
 
-    if (!messaggioInviato) {
-      const embed = new EmbedBuilder()
-        .setColor("Green")
-        .setTitle("📄 RICHIESTA PATENTE")
-        .setDescription("Premi il bottone per iniziare");
+  if (!messaggioInviato) {
+    const embed = new EmbedBuilder()
+      .setColor("Green")
+      .setTitle("📄 RICHIESTA PATENTE")
+      .setDescription(INFO_PATENTE);
 
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("start")
-          .setLabel("Richiedi patente")
-          .setStyle(ButtonStyle.Success)
-      );
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("start")
+        .setLabel("Richiedi patente")
+        .setStyle(ButtonStyle.Success)
+    );
 
-      await ch.send({ embeds: [embed], components: [row] });
-      messaggioInviato = true;
-    }
-  } catch (err) {
-    console.log("READY ERROR:", err);
+    await ch.send({ embeds: [embed], components: [row] });
+    messaggioInviato = true;
   }
 });
 
 // =========================
 // INTERACTION FIXED
 // =========================
-client.on("interactionCreate", async interaction => {
-
+client.on("interactionCreate", async (interaction) => {
   try {
 
     // START
     if (interaction.isButton() && interaction.customId === "start") {
 
-      return interaction.reply({
-        ephemeral: true,
-        embeds: [
-          new EmbedBuilder()
-            .setColor("Green")
-            .setTitle("📄 INFORMAZIONI PATENTE")
-            .setDescription(INFO_PATENTE)
-        ],
-        components: [
-          new ActionRowBuilder().addComponents(
-            new StringSelectMenuBuilder()
-              .setCustomId("select")
-              .setPlaceholder("Seleziona patente")
-              .addOptions([
-                { label: "Patente A", value: "A" },
-                { label: "Patente B", value: "B" },
-                { label: "Patente C-D", value: "CD" }
-              ])
-          )
-        ]
-      });
+      const embed = new EmbedBuilder()
+        .setColor("Green")
+        .setTitle("📄 INFORMAZIONI PATENTE")
+        .setDescription(INFO_PATENTE);
+
+      const menu = new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId("select")
+          .setPlaceholder("Seleziona patente")
+          .addOptions([
+            { label: "Patente A", value: "A" },
+            { label: "Patente B", value: "B" },
+            { label: "Patente C-D", value: "CD" }
+          ])
+      );
+
+      return interaction.reply({ embeds: [embed], components: [menu], ephemeral: true });
     }
 
-    // SELECT FIXED (NO 10062)
+    // SELECT
     if (interaction.isStringSelectMenu()) {
-
       const type = interaction.values[0];
       userData.set(interaction.user.id, { type });
 
@@ -180,13 +190,12 @@ client.on("interactionCreate", async interaction => {
 
       const input = new TextInputBuilder()
         .setCustomId("answers")
-        .setLabel("Rispondi a TUTTE le domande")
+        .setLabel("Rispondi alle domande")
         .setStyle(TextInputStyle.Paragraph)
         .setRequired(true);
 
       modal.addComponents(new ActionRowBuilder().addComponents(input));
 
-      // ❌ NO deferUpdate (CAUSA 10062)
       return interaction.showModal(modal);
     }
 
@@ -194,59 +203,58 @@ client.on("interactionCreate", async interaction => {
     if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
       const data = userData.get(interaction.user.id);
-      if (!data) return interaction.reply({ content: "Errore sessione", ephemeral: true });
+      if (!data) return;
 
       data.answers = interaction.fields.getTextInputValue("answers");
 
+      const btn = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("pay")
+          .setLabel("📸 Carica pagamento")
+          .setStyle(ButtonStyle.Primary)
+      );
+
       return interaction.reply({
-        ephemeral: true,
-        content: "Carica pagamento",
-        components: [
-          new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-              .setCustomId("pay")
-              .setLabel("Carica foto pagamento")
-              .setStyle(ButtonStyle.Primary)
-          )
-        ]
+        content: "Ora invia UNO SCREENSHOT del pagamento in chat",
+        components: [btn],
+        ephemeral: true
       });
     }
 
     // PAY
     if (interaction.isButton() && interaction.customId === "pay") {
 
-      const modal = new ModalBuilder()
-        .setCustomId("payment")
-        .setTitle("Pagamento");
+      await interaction.reply({
+        content: "📤 Invia ora lo screenshot del pagamento qui in chat (file immagine)",
+        ephemeral: true
+      });
 
-      const input = new TextInputBuilder()
-        .setCustomId("photo")
-        .setLabel("Link immagine")
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true);
+      const filter = m => m.author.id === interaction.user.id && m.attachments.size > 0;
 
-      modal.addComponents(new ActionRowBuilder().addComponents(input));
+      const collected = await interaction.channel.awaitMessages({
+        filter,
+        max: 1,
+        time: 60000
+      });
 
-      return interaction.showModal(modal);
-    }
+      if (!collected.size) return;
 
-    // PAYMENT
-    if (interaction.isModalSubmit() && interaction.customId === "payment") {
+      const msg = collected.first();
+      const photo = msg.attachments.first().url;
 
       const data = userData.get(interaction.user.id);
-      if (!data) return;
-
-      const photo = interaction.fields.getTextInputValue("photo");
-
-      const guild = await client.guilds.fetch(GUILD_ID);
       const staff = await client.channels.fetch(CANALE_STAFF);
 
       const embed = new EmbedBuilder()
         .setColor("Green")
         .setTitle("📄 NUOVA PATENTE")
-        .setDescription(
-          `👤 Utente: <@${interaction.user.id}>\n🏷️ Tipo: ${data.type}\n\n📋 RISPOSTE:\n${data.answers}`
-        )
+        .setDescription(`
+👤 Utente: <@${interaction.user.id}>
+🏷️ Tipo: ${data.type}
+
+📋 RISPOSTE:
+${data.answers}
+`)
         .setImage(photo);
 
       const row = new ActionRowBuilder().addComponents(
@@ -262,20 +270,19 @@ client.on("interactionCreate", async interaction => {
 
       await staff.send({ embeds: [embed], components: [row] });
 
-      return interaction.reply({ content: "Inviato allo staff", ephemeral: true });
+      return;
     }
 
-    // STAFF FIXED SAFE
+    // STAFF
     if (
       interaction.isButton() &&
       (interaction.customId.startsWith("accetta_") ||
        interaction.customId.startsWith("rifiuta_"))
     ) {
 
-      await interaction.deferUpdate().catch(() => {});
+      await interaction.deferUpdate();
 
       const id = interaction.customId.split("_")[1];
-
       const guild = await client.guilds.fetch(GUILD_ID);
       const member = await guild.members.fetch(id).catch(() => null);
 
