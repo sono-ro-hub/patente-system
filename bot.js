@@ -20,6 +20,11 @@ app.listen(PORT, () => {
   console.log(`🌐 Server attivo sulla porta ${PORT}`);
 });
 
+// 🔴 METTI QUI I TUOI ID REALI
+const CHANNEL_PATENTI = "1493595963942768860";
+const CHANNEL_STAFF = "1493597555760824503";
+const ROLE_PATENTE = "1492884347584385164";
+
 // BOT
 const client = new Client({
   intents: [
@@ -40,17 +45,13 @@ function generatePaymentCode() {
 client.once("clientReady", async () => {
   console.log(`🤖 Bot online: ${client.user.tag}`);
 
-  const guild = client.guilds.cache.first();
-
-  const channel = guild.channels.cache.find(
-    c => c.name === "patenti"
-  );
+  const channel = await client.channels.fetch(CHANNEL_PATENTI);
 
   if (!channel) return console.log("❌ Canale patenti non trovato");
 
   const embed = new EmbedBuilder()
     .setTitle("🚗 RICHIESTA PATENTE")
-    .setDescription("Clicca il bottone per iniziare la richiesta");
+    .setDescription("Premi il bottone per iniziare");
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -59,10 +60,7 @@ client.once("clientReady", async () => {
       .setStyle(ButtonStyle.Primary)
   );
 
-  await channel.send({
-    embeds: [embed],
-    components: [row]
-  });
+  await channel.send({ embeds: [embed], components: [row] });
 });
 
 // BUTTON SYSTEM
@@ -72,12 +70,20 @@ client.on("interactionCreate", async interaction => {
   const userId = interaction.user.id;
 
   if (!userData.has(userId)) {
-    userData.set(userId, { step: 0, code: null });
+    userData.set(userId, { step: 0, code: null, done: false });
   }
 
   const data = userData.get(userId);
 
-  // CLICK PRINCIPALE
+  // 🚫 ANTI DOPPIA RICHIESTA
+  if (data.done && interaction.customId === "start_patente") {
+    return interaction.reply({
+      content: "❌ Hai già richiesto la patente",
+      ephemeral: true
+    });
+  }
+
+  // START
   if (interaction.customId === "start_patente") {
     data.step = 1;
     data.code = generatePaymentCode();
@@ -111,11 +117,7 @@ Step:
         .setStyle(ButtonStyle.Secondary)
     );
 
-    return interaction.reply({
-      embeds: [embed],
-      components: [row],
-      ephemeral: true
-    });
+    return interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
   }
 
   // QUIZ
@@ -142,16 +144,7 @@ Step:
       });
     }
 
-    const channel = interaction.guild.channels.cache.find(
-      c => c.name === "staff-patenti"
-    );
-
-    if (!channel) {
-      return interaction.reply({
-        content: "❌ Canale staff-patenti non trovato",
-        ephemeral: true
-      });
-    }
+    const channel = await client.channels.fetch(CHANNEL_STAFF);
 
     const embed = new EmbedBuilder()
       .setTitle("🚗 NUOVA RICHIESTA")
@@ -160,16 +153,55 @@ Step:
 💳 Codice: ${data.code}`
       );
 
-    await channel.send({ embeds: [embed] });
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`accept_${userId}`)
+        .setLabel("✅ Accetta")
+        .setStyle(ButtonStyle.Success),
+
+      new ButtonBuilder()
+        .setCustomId(`reject_${userId}`)
+        .setLabel("❌ Rifiuta")
+        .setStyle(ButtonStyle.Danger)
+    );
+
+    await channel.send({ embeds: [embed], components: [row] });
 
     return interaction.reply({
       content: "✅ Inviato allo staff",
       ephemeral: true
     });
   }
+
+  // ✅ ACCETTA
+  if (interaction.customId.startsWith("accept_")) {
+    const targetId = interaction.customId.split("_")[1];
+
+    const member = await interaction.guild.members.fetch(targetId);
+    await member.roles.add(ROLE_PATENTE);
+
+    userData.get(targetId).done = true;
+
+    return interaction.update({
+      content: "✅ Patente approvata",
+      components: []
+    });
+  }
+
+  // ❌ RIFIUTA
+  if (interaction.customId.startsWith("reject_")) {
+    const targetId = interaction.customId.split("_")[1];
+
+    userData.delete(targetId);
+
+    return interaction.update({
+      content: "❌ Patente rifiutata",
+      components: []
+    });
+  }
 });
 
-// CONTROLLO MESSAGGI (NO SPAM)
+// CONTROLLO PAGAMENTO
 client.on("messageCreate", async message => {
   if (message.author.bot) return;
 
@@ -178,11 +210,7 @@ client.on("messageCreate", async message => {
 
   if (!message.content.includes(data.code) && message.attachments.size === 0) return;
 
-  const channel = message.guild.channels.cache.find(
-    c => c.name === "staff-patenti"
-  );
-
-  if (!channel) return;
+  const channel = await client.channels.fetch(CHANNEL_STAFF);
 
   await channel.send({
     content: `💳 Pagamento <@${message.author.id}> | Codice: ${data.code}`,
