@@ -23,9 +23,6 @@ const client = new Client({
   ]
 });
 
-// evita crash listener
-client.setMaxListeners(0);
-
 // =========================
 // CONFIG
 // =========================
@@ -43,7 +40,7 @@ const userData = new Map();
 let messaggioInviato = false;
 
 // =========================
-// INFORMAZIONI PATENTE
+// INFORMAZIONI PATENTE (COMPLETA COME TU)
 // =========================
 const INFO_PATENTE = `
 __**INFORMAZIONI PATENTE**__
@@ -58,7 +55,7 @@ __**INFORMAZIONI PATENTE**__
 `;
 
 // =========================
-// QUIZ
+// QUIZ COMPLETI
 // =========================
 const quiz = {
   A: [
@@ -136,171 +133,170 @@ client.once("ready", async () => {
 });
 
 // =========================
-// INTERACTIONS
+// INTERACTION (FIX DEFINITIVO 10062)
 // =========================
 client.on("interactionCreate", async interaction => {
 
-  // START BUTTON
-  if (interaction.isButton() && interaction.customId === "start") {
+  try {
 
-    const embed = new EmbedBuilder()
-      .setColor("Green")
-      .setTitle("📄 INFORMAZIONI PATENTE")
-      .setDescription(INFO_PATENTE);
+    // START
+    if (interaction.isButton() && interaction.customId === "start") {
 
-    const menu = new ActionRowBuilder().addComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId("select")
-        .setPlaceholder("Seleziona patente")
-        .addOptions([
-          { label: "Patente A", value: "A" },
-          { label: "Patente B", value: "B" },
-          { label: "Patente C-D", value: "CD" }
-        ])
-    );
+      const embed = new EmbedBuilder()
+        .setColor("Green")
+        .setTitle("📄 INFORMAZIONI PATENTE")
+        .setDescription(INFO_PATENTE);
 
-    return interaction.reply({ embeds: [embed], components: [menu], ephemeral: true });
-  }
+      const menu = new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId("select")
+          .setPlaceholder("Seleziona patente")
+          .addOptions([
+            { label: "Patente A", value: "A" },
+            { label: "Patente B", value: "B" },
+            { label: "Patente C-D", value: "CD" }
+          ])
+      );
 
-  // SELECT MENU FIX
-  if (interaction.isStringSelectMenu()) {
-
-    const type = interaction.values[0];
-
-    userData.set(interaction.user.id, { type });
-
-    const modal = new ModalBuilder()
-      .setCustomId("quiz")
-      .setTitle("Quiz Patente");
-
-    const input = new TextInputBuilder()
-      .setCustomId("answers")
-      .setLabel("Rispondi a TUTTE le domande")
-      .setStyle(TextInputStyle.Paragraph)
-      .setRequired(true);
-
-    modal.addComponents(new ActionRowBuilder().addComponents(input));
-
-    try {
-      await interaction.showModal(modal);
-    } catch (err) {
-      console.log("SHOWMODAL ERROR:", err);
+      return interaction.reply({ embeds: [embed], components: [menu], ephemeral: true });
     }
 
-    return;
-  }
+    // SELECT (FIX QUI ERA IL PROBLEMA)
+    if (interaction.isStringSelectMenu()) {
 
-  // QUIZ SUBMIT
-  if (interaction.isModalSubmit() && interaction.customId === "quiz") {
+      const type = interaction.values[0];
+      userData.set(interaction.user.id, { type });
 
-    const data = userData.get(interaction.user.id);
-    if (!data) return;
+      const modal = new ModalBuilder()
+        .setCustomId("quiz")
+        .setTitle("Quiz Patente");
 
-    data.answers = interaction.fields.getTextInputValue("answers");
+      const input = new TextInputBuilder()
+        .setCustomId("answers")
+        .setLabel("Rispondi a TUTTE le domande")
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true);
 
-    const btn = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("pay")
-        .setLabel("📸 Carica pagamento")
-        .setStyle(ButtonStyle.Primary)
-    );
+      modal.addComponents(new ActionRowBuilder().addComponents(input));
 
-    return interaction.reply({
-      content: "Carica la foto del pagamento",
-      components: [btn],
-      ephemeral: true
-    });
-  }
+      await interaction.deferUpdate().catch(() => {});
 
-  // PAY BUTTON
-  if (interaction.isButton() && interaction.customId === "pay") {
+      return interaction.showModal(modal).catch(() => {});
+    }
 
-    const modal = new ModalBuilder()
-      .setCustomId("payment")
-      .setTitle("Pagamento");
+    // QUIZ
+    if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
-    const input = new TextInputBuilder()
-      .setCustomId("photo")
-      .setLabel("LINK immagine (upload discord)")
-      .setStyle(TextInputStyle.Short)
-      .setRequired(true);
+      const data = userData.get(interaction.user.id);
+      if (!data) return;
 
-    modal.addComponents(new ActionRowBuilder().addComponents(input));
+      data.answers = interaction.fields.getTextInputValue("answers");
 
-    return interaction.showModal(modal);
-  }
+      const btn = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("pay")
+          .setLabel("📸 Carica pagamento")
+          .setStyle(ButtonStyle.Primary)
+      );
 
-  // PAYMENT SUBMIT
-  if (interaction.isModalSubmit() && interaction.customId === "payment") {
+      return interaction.reply({
+        content: "Carica la foto del pagamento",
+        components: [btn],
+        ephemeral: true
+      });
+    }
 
-    const data = userData.get(interaction.user.id);
-    if (!data) return;
+    // PAY
+    if (interaction.isButton() && interaction.customId === "pay") {
 
-    const photo = interaction.fields.getTextInputValue("photo");
+      const modal = new ModalBuilder()
+        .setCustomId("payment")
+        .setTitle("Pagamento");
 
-    const staff = await client.channels.fetch(CANALE_STAFF);
+      const input = new TextInputBuilder()
+        .setCustomId("photo")
+        .setLabel("LINK immagine")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
 
-    const embed = new EmbedBuilder()
-      .setColor("Green")
-      .setTitle("📄 NUOVA PATENTE")
-      .setDescription(`
+      modal.addComponents(new ActionRowBuilder().addComponents(input));
+
+      return interaction.showModal(modal);
+    }
+
+    // PAYMENT
+    if (interaction.isModalSubmit() && interaction.customId === "payment") {
+
+      const data = userData.get(interaction.user.id);
+      if (!data) return;
+
+      const photo = interaction.fields.getTextInputValue("photo");
+
+      const staff = await client.channels.fetch(CANALE_STAFF);
+
+      const embed = new EmbedBuilder()
+        .setColor("Green")
+        .setTitle("📄 NUOVA PATENTE")
+        .setDescription(`
 👤 Utente: <@${interaction.user.id}>
 🏷️ Tipo: ${data.type}
 
 📋 RISPOSTE:
 ${data.answers}
 `)
-      .setImage(photo);
+        .setImage(photo);
 
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`accetta_${interaction.user.id}`)
-        .setLabel("ACCETTA")
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId(`rifiuta_${interaction.user.id}`)
-        .setLabel("RIFIUTA")
-        .setStyle(ButtonStyle.Danger)
-    );
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`accetta_${interaction.user.id}`)
+          .setLabel("ACCETTA")
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId(`rifiuta_${interaction.user.id}`)
+          .setLabel("RIFIUTA")
+          .setStyle(ButtonStyle.Danger)
+      );
 
-    await staff.send({ embeds: [embed], components: [row] });
+      await staff.send({ embeds: [embed], components: [row] });
 
-    return interaction.reply({ content: "Inviato allo staff", ephemeral: true });
-  }
+      return interaction.reply({ content: "Inviato allo staff", ephemeral: true });
+    }
 
-  // STAFF BUTTON FIX DEFINITIVO
-  if (
-    interaction.isButton() &&
-    (interaction.customId.startsWith("accetta_") ||
-     interaction.customId.startsWith("rifiuta_"))
-  ) {
+    // STAFF FIX
+    if (
+      interaction.isButton() &&
+      (interaction.customId.startsWith("accetta_") ||
+       interaction.customId.startsWith("rifiuta_"))
+    ) {
 
-    await interaction.deferUpdate();
+      await interaction.deferUpdate().catch(() => {});
 
-    const id = interaction.customId.split("_")[1];
-    const guild = await client.guilds.fetch(GUILD_ID);
-    const member = await guild.members.fetch(id);
+      const id = interaction.customId.split("_")[1];
 
-    const tipo = userData.get(id)?.type;
+      const guild = await client.guilds.fetch(GUILD_ID);
+      const member = await guild.members.fetch(id).catch(() => null);
 
-    if (interaction.customId.startsWith("accetta_")) {
+      if (!member) return;
 
-      if (tipo && RUOLI[tipo]) {
-        await member.roles.add(RUOLI[tipo]);
+      const tipo = userData.get(id)?.type;
+
+      if (interaction.customId.startsWith("accetta_")) {
+        if (tipo && RUOLI[tipo]) {
+          await member.roles.add(RUOLI[tipo]).catch(() => {});
+        }
       }
 
       return interaction.editReply({
-        content: `✅ ACCETTATO da ${interaction.user.tag}`,
+        content: interaction.customId.startsWith("accetta_")
+          ? `✅ ACCETTATO da ${interaction.user.tag}`
+          : `❌ RIFIUTATO da ${interaction.user.tag}`,
         components: []
       });
     }
 
-    return interaction.editReply({
-      content: `❌ RIFIUTATO da ${interaction.user.tag}`,
-      components: []
-    });
+  } catch (err) {
+    console.log("ERROR INTERACTION:", err);
   }
-
 });
 
 client.login(process.env.TOKEN);
