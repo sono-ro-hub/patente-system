@@ -10,157 +10,185 @@ const {
 const express = require("express");
 const app = express();
 
-const PORT = process.env.PORT || 3000;
-
-app.get("/", (req, res) => {
-  res.send("Bot online ✅");
-});
-
-app.listen(PORT, () => {
-  console.log(`🌐 Server attivo sulla porta ${PORT}`);
-});
-
-// 🔴 METTI QUI I TUOI ID REALI
-const CHANNEL_PATENTI = "1493595963942768860";
-const CHANNEL_STAFF = "1493597555760824503";
-const ROLE_PATENTE = "1492884347584385164";
-
-// BOT
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.GuildMessages
   ]
 });
 
-const userData = new Map();
+// 🔧 CONFIG
+const CHANNEL_RICHIESTE = "1493595963942768860";
+const CHANNEL_STAFF = "1493597555760824503";
+const ROLE_PATENTE = "1492884347584385164";
 
-// GENERA CODICE
-function generatePaymentCode() {
-  return "PAT-" + Math.floor(10000 + Math.random() * 90000);
-}
+// 🌐 KEEP ALIVE
+app.get("/", (req, res) => res.send("Bot online"));
+app.listen(process.env.PORT || 3000);
 
-// READY
+// 📦 DATI
+const richieste = new Map();
+
+// ================= READY =================
 client.once("clientReady", async () => {
-  console.log(`🤖 Bot online: ${client.user.tag}`);
+  console.log(`✅ Bot online: ${client.user.tag}`);
 
-  const channel = await client.channels.fetch(CHANNEL_PATENTI);
-
-  if (!channel) return console.log("❌ Canale patenti non trovato");
+  const channel = await client.channels.fetch(CHANNEL_RICHIESTE);
 
   const embed = new EmbedBuilder()
-    .setTitle("🚗 RICHIESTA PATENTE")
-    .setDescription("Premi il bottone per iniziare");
+    .setTitle("📄INFORMAZIONI PATENTE📄")
+    .setDescription(`__**INFORMAZIONI PATENTE**__
+
+***Ecco alcuni step per fare la patente***
+
+1) Inviare il quiz su MODULI-PATENTE  
+2) Pagare 3k a Lessimanuardi123  
+3) Inviare prova pagamento  
+
+⚠️ Senza patente multa 1k`);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId("start_patente")
-      .setLabel("📋 Richiedi patente")
+      .setCustomId("richiedi_patente")
+      .setLabel("📄 Richiedi patente")
       .setStyle(ButtonStyle.Primary)
   );
 
   await channel.send({ embeds: [embed], components: [row] });
 });
 
-// BUTTON SYSTEM
+// ================= BUTTON =================
 client.on("interactionCreate", async interaction => {
   if (!interaction.isButton()) return;
 
   const userId = interaction.user.id;
 
-  if (!userData.has(userId)) {
-    userData.set(userId, { step: 0, code: null, done: false });
-  }
-
-  const data = userData.get(userId);
-
-  // 🚫 ANTI DOPPIA RICHIESTA
-  if (data.done && interaction.customId === "start_patente") {
+  // 🚫 ANTI SPAM
+  if (richieste.has(userId)) {
     return interaction.reply({
-      content: "❌ Hai già richiesto la patente",
+      content: "❌ Hai già una richiesta in corso!",
       ephemeral: true
     });
   }
 
-  // START
-  if (interaction.customId === "start_patente") {
-    data.step = 1;
-    data.code = generatePaymentCode();
-
-    const embed = new EmbedBuilder()
-      .setTitle("📋 MODULO PATENTE")
-      .setDescription(
-`💳 Codice pagamento:
-\`${data.code}\`
-
-Step:
-1️⃣ Quiz
-2️⃣ Pagamento
-3️⃣ Invio staff`
-      );
+  // 📌 RICHIEDI
+  if (interaction.customId === "richiedi_patente") {
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId("quiz")
-        .setLabel("📋 Quiz")
+        .setCustomId("patente_A")
+        .setLabel("🏍 Patente A")
         .setStyle(ButtonStyle.Primary),
 
       new ButtonBuilder()
-        .setCustomId("pay")
-        .setLabel("💳 Pagamento")
-        .setStyle(ButtonStyle.Success),
+        .setCustomId("patente_B")
+        .setLabel("🚗 Patente B")
+        .setStyle(ButtonStyle.Primary),
 
       new ButtonBuilder()
-        .setCustomId("send")
-        .setLabel("📤 Invia staff")
-        .setStyle(ButtonStyle.Secondary)
+        .setCustomId("patente_CD")
+        .setLabel("🚚 Patente C-D")
+        .setStyle(ButtonStyle.Primary)
     );
 
-    return interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
-  }
-
-  // QUIZ
-  if (interaction.customId === "quiz") {
-    data.step = 2;
-    return interaction.reply({ content: "✅ Quiz completato", ephemeral: true });
-  }
-
-  // PAGAMENTO
-  if (interaction.customId === "pay") {
-    data.step = 3;
     return interaction.reply({
-      content: `📸 Invia screenshot + codice: ${data.code}`,
+      content: "Scegli la patente:",
+      components: [row],
       ephemeral: true
     });
   }
 
-  // INVIO STAFF
-  if (interaction.customId === "send") {
-    if (data.step < 3) {
-      return interaction.reply({
-        content: "❌ Completa prima tutto",
-        ephemeral: true
-      });
-    }
+  // ================= QUIZ =================
+
+  let quiz = "";
+
+  if (interaction.customId === "patente_A") {
+    quiz = `🏍 **PATENTE A**
+
+1. Il casco è obbligatorio?
+2. I fari accesi di giorno?
+3. Rallentare prima curva?
+4. Posso guidare senza guanti?
+5. Frenata più lunga su bagnato?
+6. Freno anteriore più potente?
+7. Vietato sorpasso a destra?
+8. Pneumatici lisci sicuri?
+9. Freccia serve?
+10. Casco allacciato?
+11. Posso contromano?
+12. Limite 50 città?
+13. Senza patente posso guidare?
+14. Pioggia → distanza?
+15. Clacson solo pericolo?`;
+  }
+
+  if (interaction.customId === "patente_B") {
+    quiz = `🚗 **PATENTE B**
+
+1. Casco obbligatorio auto?
+2. Limite 50?
+3. Cintura sempre?
+4. Sorpasso linea continua?
+5. Distanza sicurezza?
+6. Rosso = stop?
+7. Cellulare senza vivavoce?
+8. Fari notte?
+9. Frenata bagnato?
+10. Bambini seggiolino?
+11. Precedenza destra?
+12. Segnale blu barra rossa?
+13. Sorpasso sempre sinistra?
+14. Limiti obbligatori?
+15. Autostrada 130?`;
+  }
+
+  if (interaction.customId === "patente_CD") {
+    quiz = `🚚 **PATENTE C-D**
+
+1) Limite città?
+2) Rosso cosa fai?
+3) Precedenza?
+4) Luci quando?
+5) Ambulanza?
+6) Veicolo per più persone?
+7) Distanza sicurezza?
+8) Freno camion?
+9) Dove parcheggiare?
+10) Segnale camion?`;
+  }
+
+  if (quiz !== "") {
+    richieste.set(userId, interaction.customId);
+
+    const embed = new EmbedBuilder()
+      .setTitle("📋 QUIZ PATENTE")
+      .setDescription(quiz);
+
+    return interaction.reply({
+      embeds: [embed],
+      ephemeral: true
+    });
+  }
+
+  // ================= INVIO STAFF =================
+  if (interaction.customId === "invia_staff") {
+
+    const tipo = richieste.get(userId);
 
     const channel = await client.channels.fetch(CHANNEL_STAFF);
 
     const embed = new EmbedBuilder()
-      .setTitle("🚗 NUOVA RICHIESTA")
-      .setDescription(
-`👤 <@${userId}>
-💳 Codice: ${data.code}`
-      );
+      .setTitle("🚗 RICHIESTA PATENTE")
+      .setDescription(`Utente: <@${userId}>\nTipo: ${tipo}`);
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId(`accept_${userId}`)
+        .setCustomId(`accetta_${userId}`)
         .setLabel("✅ Accetta")
         .setStyle(ButtonStyle.Success),
 
       new ButtonBuilder()
-        .setCustomId(`reject_${userId}`)
+        .setCustomId(`rifiuta_${userId}`)
         .setLabel("❌ Rifiuta")
         .setStyle(ButtonStyle.Danger)
     );
@@ -168,56 +196,35 @@ Step:
     await channel.send({ embeds: [embed], components: [row] });
 
     return interaction.reply({
-      content: "✅ Inviato allo staff",
+      content: "📤 Inviato allo staff",
       ephemeral: true
     });
   }
 
-  // ✅ ACCETTA
-  if (interaction.customId.startsWith("accept_")) {
-    const targetId = interaction.customId.split("_")[1];
+  // ================= STAFF =================
+  if (interaction.customId.startsWith("accetta_")) {
+    const id = interaction.customId.split("_")[1];
+    const member = await interaction.guild.members.fetch(id);
 
-    const member = await interaction.guild.members.fetch(targetId);
     await member.roles.add(ROLE_PATENTE);
-
-    userData.get(targetId).done = true;
+    richieste.delete(id);
 
     return interaction.update({
-      content: "✅ Patente approvata",
+      content: "✅ Patente APPROVATA",
       components: []
     });
   }
 
-  // ❌ RIFIUTA
-  if (interaction.customId.startsWith("reject_")) {
-    const targetId = interaction.customId.split("_")[1];
+  if (interaction.customId.startsWith("rifiuta_")) {
+    const id = interaction.customId.split("_")[1];
 
-    userData.delete(targetId);
+    richieste.delete(id);
 
     return interaction.update({
-      content: "❌ Patente rifiutata",
+      content: "❌ Patente RIFIUTATA",
       components: []
     });
   }
-});
-
-// CONTROLLO PAGAMENTO
-client.on("messageCreate", async message => {
-  if (message.author.bot) return;
-
-  const data = userData.get(message.author.id);
-  if (!data || data.step !== 3) return;
-
-  if (!message.content.includes(data.code) && message.attachments.size === 0) return;
-
-  const channel = await client.channels.fetch(CHANNEL_STAFF);
-
-  await channel.send({
-    content: `💳 Pagamento <@${message.author.id}> | Codice: ${data.code}`,
-    files: message.attachments.map(a => a.url)
-  });
-
-  message.reply("✅ Pagamento inviato!");
 });
 
 // LOGIN
