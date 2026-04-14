@@ -23,6 +23,9 @@ const client = new Client({
   ]
 });
 
+// evita crash listener
+client.setMaxListeners(0);
+
 // =========================
 // CONFIG
 // =========================
@@ -137,7 +140,7 @@ client.once("ready", async () => {
 // =========================
 client.on("interactionCreate", async interaction => {
 
-  // START
+  // START BUTTON
   if (interaction.isButton() && interaction.customId === "start") {
 
     const embed = new EmbedBuilder()
@@ -159,37 +162,35 @@ client.on("interactionCreate", async interaction => {
     return interaction.reply({ embeds: [embed], components: [menu], ephemeral: true });
   }
 
-  // SELECT
+  // SELECT MENU FIX
   if (interaction.isStringSelectMenu()) {
 
+    const type = interaction.values[0];
+
+    userData.set(interaction.user.id, { type });
+
+    const modal = new ModalBuilder()
+      .setCustomId("quiz")
+      .setTitle("Quiz Patente");
+
+    const input = new TextInputBuilder()
+      .setCustomId("answers")
+      .setLabel("Rispondi a TUTTE le domande")
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(true);
+
+    modal.addComponents(new ActionRowBuilder().addComponents(input));
+
     try {
-      const type = interaction.values[0];
-
-      userData.set(interaction.user.id, { type });
-
-      const domande = quiz[type];
-
-      const modal = new ModalBuilder()
-        .setCustomId("quiz")
-        .setTitle("Quiz Patente");
-
-      const input = new TextInputBuilder()
-        .setCustomId("answers")
-        .setLabel("Rispondi a TUTTE le domande")
-        .setStyle(TextInputStyle.Paragraph)
-        .setRequired(true);
-
-      modal.addComponents(new ActionRowBuilder().addComponents(input));
-
-      return await interaction.showModal(modal);
-
+      await interaction.showModal(modal);
     } catch (err) {
-      console.log("Errore showModal:", err);
-      return;
+      console.log("SHOWMODAL ERROR:", err);
     }
+
+    return;
   }
 
-  // QUIZ
+  // QUIZ SUBMIT
   if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
     const data = userData.get(interaction.user.id);
@@ -229,7 +230,7 @@ client.on("interactionCreate", async interaction => {
     return interaction.showModal(modal);
   }
 
-  // PAYMENT
+  // PAYMENT SUBMIT
   if (interaction.isModalSubmit() && interaction.customId === "payment") {
 
     const data = userData.get(interaction.user.id);
@@ -267,7 +268,7 @@ ${data.answers}
     return interaction.reply({ content: "Inviato allo staff", ephemeral: true });
   }
 
-  // STAFF
+  // STAFF BUTTON FIX DEFINITIVO
   if (
     interaction.isButton() &&
     (interaction.customId.startsWith("accetta_") ||
@@ -277,23 +278,29 @@ ${data.answers}
     await interaction.deferUpdate();
 
     const id = interaction.customId.split("_")[1];
-    const member = await interaction.guild.members.fetch(id);
+    const guild = await client.guilds.fetch(GUILD_ID);
+    const member = await guild.members.fetch(id);
 
     const tipo = userData.get(id)?.type;
 
     if (interaction.customId.startsWith("accetta_")) {
+
       if (tipo && RUOLI[tipo]) {
         await member.roles.add(RUOLI[tipo]);
       }
+
+      return interaction.editReply({
+        content: `✅ ACCETTATO da ${interaction.user.tag}`,
+        components: []
+      });
     }
 
     return interaction.editReply({
-      content: interaction.customId.startsWith("accetta_")
-        ? `✅ ACCETTATO da ${interaction.user.tag}`
-        : `❌ RIFIUTATO da ${interaction.user.tag}`,
+      content: `❌ RIFIUTATO da ${interaction.user.tag}`,
       components: []
     });
   }
+
 });
 
 client.login(process.env.TOKEN);
