@@ -18,7 +18,6 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers
   ]
 });
@@ -40,7 +39,7 @@ const userData = new Map();
 let messaggioInviato = false;
 
 // =========================
-// INFORMAZIONI PATENTE (COMPLETA COME TU)
+// INFORMAZIONI PATENTE
 // =========================
 const INFO_PATENTE = `
 __**INFORMAZIONI PATENTE**__
@@ -55,7 +54,7 @@ __**INFORMAZIONI PATENTE**__
 `;
 
 // =========================
-// QUIZ COMPLETI
+// QUIZ
 // =========================
 const quiz = {
   A: [
@@ -112,28 +111,32 @@ const quiz = {
 client.once("ready", async () => {
   console.log("BOT PRONTO");
 
-  const ch = await client.channels.fetch(CANALE_RICHIESTE);
+  try {
+    const ch = await client.channels.fetch(CANALE_RICHIESTE);
 
-  if (!messaggioInviato) {
-    const embed = new EmbedBuilder()
-      .setColor("Green")
-      .setTitle("📄 RICHIESTA PATENTE")
-      .setDescription("Premi il bottone per iniziare");
+    if (!messaggioInviato) {
+      const embed = new EmbedBuilder()
+        .setColor("Green")
+        .setTitle("📄 RICHIESTA PATENTE")
+        .setDescription("Premi il bottone per iniziare");
 
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("start")
-        .setLabel("Richiedi patente")
-        .setStyle(ButtonStyle.Success)
-    );
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("start")
+          .setLabel("Richiedi patente")
+          .setStyle(ButtonStyle.Success)
+      );
 
-    await ch.send({ embeds: [embed], components: [row] });
-    messaggioInviato = true;
+      await ch.send({ embeds: [embed], components: [row] });
+      messaggioInviato = true;
+    }
+  } catch (err) {
+    console.log("READY ERROR:", err);
   }
 });
 
 // =========================
-// INTERACTION (FIX DEFINITIVO 10062)
+// INTERACTION FIXED
 // =========================
 client.on("interactionCreate", async interaction => {
 
@@ -142,26 +145,30 @@ client.on("interactionCreate", async interaction => {
     // START
     if (interaction.isButton() && interaction.customId === "start") {
 
-      const embed = new EmbedBuilder()
-        .setColor("Green")
-        .setTitle("📄 INFORMAZIONI PATENTE")
-        .setDescription(INFO_PATENTE);
-
-      const menu = new ActionRowBuilder().addComponents(
-        new StringSelectMenuBuilder()
-          .setCustomId("select")
-          .setPlaceholder("Seleziona patente")
-          .addOptions([
-            { label: "Patente A", value: "A" },
-            { label: "Patente B", value: "B" },
-            { label: "Patente C-D", value: "CD" }
-          ])
-      );
-
-      return interaction.reply({ embeds: [embed], components: [menu], ephemeral: true });
+      return interaction.reply({
+        ephemeral: true,
+        embeds: [
+          new EmbedBuilder()
+            .setColor("Green")
+            .setTitle("📄 INFORMAZIONI PATENTE")
+            .setDescription(INFO_PATENTE)
+        ],
+        components: [
+          new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+              .setCustomId("select")
+              .setPlaceholder("Seleziona patente")
+              .addOptions([
+                { label: "Patente A", value: "A" },
+                { label: "Patente B", value: "B" },
+                { label: "Patente C-D", value: "CD" }
+              ])
+          )
+        ]
+      });
     }
 
-    // SELECT (FIX QUI ERA IL PROBLEMA)
+    // SELECT FIXED (NO 10062)
     if (interaction.isStringSelectMenu()) {
 
       const type = interaction.values[0];
@@ -179,30 +186,29 @@ client.on("interactionCreate", async interaction => {
 
       modal.addComponents(new ActionRowBuilder().addComponents(input));
 
-      await interaction.deferUpdate().catch(() => {});
-
-      return interaction.showModal(modal).catch(() => {});
+      // ❌ NO deferUpdate (CAUSA 10062)
+      return interaction.showModal(modal);
     }
 
     // QUIZ
     if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
       const data = userData.get(interaction.user.id);
-      if (!data) return;
+      if (!data) return interaction.reply({ content: "Errore sessione", ephemeral: true });
 
       data.answers = interaction.fields.getTextInputValue("answers");
 
-      const btn = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("pay")
-          .setLabel("📸 Carica pagamento")
-          .setStyle(ButtonStyle.Primary)
-      );
-
       return interaction.reply({
-        content: "Carica la foto del pagamento",
-        components: [btn],
-        ephemeral: true
+        ephemeral: true,
+        content: "Carica pagamento",
+        components: [
+          new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId("pay")
+              .setLabel("Carica foto pagamento")
+              .setStyle(ButtonStyle.Primary)
+          )
+        ]
       });
     }
 
@@ -215,7 +221,7 @@ client.on("interactionCreate", async interaction => {
 
       const input = new TextInputBuilder()
         .setCustomId("photo")
-        .setLabel("LINK immagine")
+        .setLabel("Link immagine")
         .setStyle(TextInputStyle.Short)
         .setRequired(true);
 
@@ -232,18 +238,15 @@ client.on("interactionCreate", async interaction => {
 
       const photo = interaction.fields.getTextInputValue("photo");
 
+      const guild = await client.guilds.fetch(GUILD_ID);
       const staff = await client.channels.fetch(CANALE_STAFF);
 
       const embed = new EmbedBuilder()
         .setColor("Green")
         .setTitle("📄 NUOVA PATENTE")
-        .setDescription(`
-👤 Utente: <@${interaction.user.id}>
-🏷️ Tipo: ${data.type}
-
-📋 RISPOSTE:
-${data.answers}
-`)
+        .setDescription(
+          `👤 Utente: <@${interaction.user.id}>\n🏷️ Tipo: ${data.type}\n\n📋 RISPOSTE:\n${data.answers}`
+        )
         .setImage(photo);
 
       const row = new ActionRowBuilder().addComponents(
@@ -262,7 +265,7 @@ ${data.answers}
       return interaction.reply({ content: "Inviato allo staff", ephemeral: true });
     }
 
-    // STAFF FIX
+    // STAFF FIXED SAFE
     if (
       interaction.isButton() &&
       (interaction.customId.startsWith("accetta_") ||
@@ -295,7 +298,7 @@ ${data.answers}
     }
 
   } catch (err) {
-    console.log("ERROR INTERACTION:", err);
+    console.log("ERROR:", err);
   }
 });
 
