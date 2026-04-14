@@ -4,224 +4,199 @@ const {
   EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
-  ButtonStyle
+  ButtonStyle,
+  StringSelectMenuBuilder
 } = require("discord.js");
 
 const express = require("express");
 const app = express();
 
+const PORT = process.env.PORT || 3000;
+
+// 🌐 SERVER RENDER
+app.get("/", (req, res) => res.send("Bot online"));
+app.listen(PORT, () => console.log("🌐 Server attivo " + PORT));
+
+// 🤖 BOT
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
   ]
 });
 
-// 🔧 CONFIG
+// ⚙️ CONFIG
 const CHANNEL_RICHIESTE = "1493595963942768860";
 const CHANNEL_STAFF = "1493597555760824503";
-const ROLE_PATENTE = "1492884347584385164";
+const RUOLO_PATENTE = "1492884347584385164";
 
-// 🌐 KEEP ALIVE
-app.get("/", (req, res) => res.send("Bot online"));
-app.listen(process.env.PORT || 3000);
-
-// 📦 DATI
-const richieste = new Map();
-
-// ================= READY =================
+// READY
 client.once("clientReady", async () => {
-  console.log(`✅ Bot online: ${client.user.tag}`);
+  console.log("🤖 Bot pronto " + client.user.tag);
 
   const channel = await client.channels.fetch(CHANNEL_RICHIESTE);
 
   const embed = new EmbedBuilder()
-    .setTitle("📄INFORMAZIONI PATENTE📄")
-    .setDescription(`__**INFORMAZIONI PATENTE**__
-
-***Ecco alcuni step per fare la patente***
-
-1) Inviare il quiz su MODULI-PATENTE  
-2) Pagare 3k a Lessimanuardi123  
-3) Inviare prova pagamento  
-
-⚠️ Senza patente multa 1k`);
+    .setTitle("🚗 RICHIESTA PATENTE")
+    .setDescription("Premi il bottone per iniziare");
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId("richiedi_patente")
+      .setCustomId("richiedi")
       .setLabel("📄 Richiedi patente")
       .setStyle(ButtonStyle.Primary)
   );
 
-  await channel.send({ embeds: [embed], components: [row] });
+  channel.send({ embeds: [embed], components: [row] });
 });
 
-// ================= BUTTON =================
+// INTERAZIONI
 client.on("interactionCreate", async interaction => {
-  if (!interaction.isButton()) return;
 
-  const userId = interaction.user.id;
+  // 📌 CLICK RICHIEDI
+  if (interaction.isButton() && interaction.customId === "richiedi") {
 
-  // 🚫 ANTI SPAM
-  if (richieste.has(userId)) {
+    const embed = new EmbedBuilder()
+      .setTitle("📄 INFORMAZIONI PATENTE")
+      .setDescription(`
+__**INFORMAZIONI PATENTE**__
+
+1) Fai il quiz  
+2) Paga 3k  
+3) Invia screenshot  
+4) Attendi staff
+
+Multa senza patente: **1k**
+`);
+
+    const menu = new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId("scelta_patente")
+        .setPlaceholder("Scegli patente")
+        .addOptions([
+          { label: "Patente A", value: "A" },
+          { label: "Patente B", value: "B" },
+          { label: "Patente C-D", value: "CD" }
+        ])
+    );
+
     return interaction.reply({
-      content: "❌ Hai già una richiesta in corso!",
+      embeds: [embed],
+      components: [menu],
       ephemeral: true
     });
   }
 
-  // 📌 RICHIEDI
-  if (interaction.customId === "richiedi_patente") {
+  // 📋 SCELTA PATENTE
+  if (interaction.isStringSelectMenu()) {
+    const tipo = interaction.values[0];
+
+    let domande = "";
+
+    if (tipo === "A") {
+      domande = `
+**PATENTE A**
+1. Casco obbligatorio?
+2. Fari di giorno?
+3. Frenata più lunga su bagnato?
+4. Posso guidare senza patente?
+5. Limite città 50km/h?
+      `;
+    }
+
+    if (tipo === "B") {
+      domande = `
+**PATENTE B**
+1. Cintura obbligatoria?
+2. Semaforo rosso = stop?
+3. Posso usare telefono?
+4. Limite città 50km/h?
+5. Frenata più lunga su bagnato?
+      `;
+    }
+
+    if (tipo === "CD") {
+      domande = `
+**PATENTE C-D**
+1. Limite camion città?
+2. Ambulanza cosa fai?
+3. Precedenza destra?
+4. Luci quando usarle?
+5. Dove parcheggiare camion?
+      `;
+    }
+
+    const embed = new EmbedBuilder()
+      .setTitle("🧠 QUIZ")
+      .setDescription(domande + "\n\n📸 Invia anche SCREEN PAGAMENTO");
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId("patente_A")
-        .setLabel("🏍 Patente A")
-        .setStyle(ButtonStyle.Primary),
-
-      new ButtonBuilder()
-        .setCustomId("patente_B")
-        .setLabel("🚗 Patente B")
-        .setStyle(ButtonStyle.Primary),
-
-      new ButtonBuilder()
-        .setCustomId("patente_CD")
-        .setLabel("🚚 Patente C-D")
-        .setStyle(ButtonStyle.Primary)
+        .setCustomId("invia_staff_" + tipo)
+        .setLabel("📤 Invia allo staff")
+        .setStyle(ButtonStyle.Success)
     );
 
     return interaction.reply({
-      content: "Scegli la patente:",
+      embeds: [embed],
       components: [row],
       ephemeral: true
     });
   }
 
-  // ================= QUIZ =================
+  // 📤 INVIO STAFF
+  if (interaction.isButton() && interaction.customId.startsWith("invia_staff_")) {
+    const tipo = interaction.customId.split("_")[2];
 
-  let quiz = "";
-
-  if (interaction.customId === "patente_A") {
-    quiz = `🏍 **PATENTE A**
-
-1. Il casco è obbligatorio?
-2. I fari accesi di giorno?
-3. Rallentare prima curva?
-4. Posso guidare senza guanti?
-5. Frenata più lunga su bagnato?
-6. Freno anteriore più potente?
-7. Vietato sorpasso a destra?
-8. Pneumatici lisci sicuri?
-9. Freccia serve?
-10. Casco allacciato?
-11. Posso contromano?
-12. Limite 50 città?
-13. Senza patente posso guidare?
-14. Pioggia → distanza?
-15. Clacson solo pericolo?`;
-  }
-
-  if (interaction.customId === "patente_B") {
-    quiz = `🚗 **PATENTE B**
-
-1. Casco obbligatorio auto?
-2. Limite 50?
-3. Cintura sempre?
-4. Sorpasso linea continua?
-5. Distanza sicurezza?
-6. Rosso = stop?
-7. Cellulare senza vivavoce?
-8. Fari notte?
-9. Frenata bagnato?
-10. Bambini seggiolino?
-11. Precedenza destra?
-12. Segnale blu barra rossa?
-13. Sorpasso sempre sinistra?
-14. Limiti obbligatori?
-15. Autostrada 130?`;
-  }
-
-  if (interaction.customId === "patente_CD") {
-    quiz = `🚚 **PATENTE C-D**
-
-1) Limite città?
-2) Rosso cosa fai?
-3) Precedenza?
-4) Luci quando?
-5) Ambulanza?
-6) Veicolo per più persone?
-7) Distanza sicurezza?
-8) Freno camion?
-9) Dove parcheggiare?
-10) Segnale camion?`;
-  }
-
-  if (quiz !== "") {
-    richieste.set(userId, interaction.customId);
+    const staff = await client.channels.fetch(CHANNEL_STAFF);
 
     const embed = new EmbedBuilder()
-      .setTitle("📋 QUIZ PATENTE")
-      .setDescription(quiz);
+      .setTitle("🚗 NUOVA RICHIESTA")
+      .setDescription(`
+Utente: <@${interaction.user.id}>
+Patente: ${tipo}
 
-    return interaction.reply({
-      embeds: [embed],
-      ephemeral: true
-    });
-  }
-
-  // ================= INVIO STAFF =================
-  if (interaction.customId === "invia_staff") {
-
-    const tipo = richieste.get(userId);
-
-    const channel = await client.channels.fetch(CHANNEL_STAFF);
-
-    const embed = new EmbedBuilder()
-      .setTitle("🚗 RICHIESTA PATENTE")
-      .setDescription(`Utente: <@${userId}>\nTipo: ${tipo}`);
+📸 Controlla pagamento + risposte
+      `);
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId(`accetta_${userId}`)
+        .setCustomId("accetta_" + interaction.user.id)
         .setLabel("✅ Accetta")
         .setStyle(ButtonStyle.Success),
 
       new ButtonBuilder()
-        .setCustomId(`rifiuta_${userId}`)
+        .setCustomId("rifiuta")
         .setLabel("❌ Rifiuta")
         .setStyle(ButtonStyle.Danger)
     );
 
-    await channel.send({ embeds: [embed], components: [row] });
+    staff.send({ embeds: [embed], components: [row] });
 
     return interaction.reply({
-      content: "📤 Inviato allo staff",
+      content: "📤 Inviato allo staff!",
       ephemeral: true
     });
   }
 
-  // ================= STAFF =================
-  if (interaction.customId.startsWith("accetta_")) {
-    const id = interaction.customId.split("_")[1];
-    const member = await interaction.guild.members.fetch(id);
+  // ✅ ACCETTA
+  if (interaction.isButton() && interaction.customId.startsWith("accetta_")) {
+    const userId = interaction.customId.split("_")[1];
 
-    await member.roles.add(ROLE_PATENTE);
-    richieste.delete(id);
+    const member = await interaction.guild.members.fetch(userId);
+    await member.roles.add(RUOLO_PATENTE);
 
-    return interaction.update({
-      content: "✅ Patente APPROVATA",
+    await interaction.update({
+      content: "✅ APPROVATA + ruolo dato",
       components: []
     });
   }
 
-  if (interaction.customId.startsWith("rifiuta_")) {
-    const id = interaction.customId.split("_")[1];
-
-    richieste.delete(id);
-
-    return interaction.update({
-      content: "❌ Patente RIFIUTATA",
+  // ❌ RIFIUTA
+  if (interaction.isButton() && interaction.customId === "rifiuta") {
+    await interaction.update({
+      content: "❌ RIFIUTATA",
       components: []
     });
   }
