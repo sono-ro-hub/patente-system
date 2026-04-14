@@ -14,9 +14,8 @@ const {
 const express = require("express");
 const app = express();
 
-const PORT = process.env.PORT || 3000;
 app.get("/", (req, res) => res.send("Bot online"));
-app.listen(PORT, () => console.log("🌐 Server attivo"));
+app.listen(process.env.PORT || 3000);
 
 const client = new Client({
   intents: [
@@ -26,54 +25,63 @@ const client = new Client({
   ]
 });
 
-// CONFIG
-const CHANNEL_RICHIESTE = "1493595963942768860";
+// 🔧 CONFIG
+const CHANNEL_REQUEST = "1493595963942768860";
 const CHANNEL_STAFF = "1493597555760824503";
 const RUOLO_PATENTE = "1492884347584385164";
 
 const userData = new Map();
 
+// =========================
 // READY
+// =========================
 client.once("clientReady", async () => {
   console.log("🤖 Bot pronto");
 
-  const ch = await client.channels.fetch(CHANNEL_RICHIESTE);
+  const ch = await client.channels.fetch(CHANNEL_REQUEST);
 
   const embed = new EmbedBuilder()
-    .setTitle("🚗 RICHIESTA PATENTE")
     .setColor("Green")
-    .setDescription("Premi il bottone per iniziare");
+    .setTitle("RICHIESTA PATENTE")
+    .setDescription("Clicca per iniziare");
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId("richiedi")
-      .setLabel("📄 Richiedi patente")
+      .setCustomId("start")
+      .setLabel("Richiedi patente")
       .setStyle(ButtonStyle.Success)
   );
 
   ch.send({ embeds: [embed], components: [row] });
 });
 
+// =========================
 // INTERAZIONI
+// =========================
 client.on("interactionCreate", async interaction => {
 
-  // CLICK START
-  if (interaction.isButton() && interaction.customId === "richiedi") {
+  // START
+  if (interaction.isButton() && interaction.customId === "start") {
 
     const embed = new EmbedBuilder()
       .setColor("Green")
-      .setTitle("📄 INFORMAZIONI PATENTE")
+      .setTitle("INFORMAZIONI PATENTE")
       .setDescription(`
-1) Compila quiz  
-2) Invia pagamento  
-3) Attendi staff  
-Multa: 1k
+__**INFORMAZIONI PATENTE**__
+
+***Ecco alcuni step per fare la patente in maniera corretta***
+
+**1)** Inviare il quiz su MODULI-PATENTE e attendere correzione staff  
+
+**2)** Inviare 3k all'id Lessimanuardi123 e foto su PAGAMENTI PATENTE  
+
+**3)** Usare la patente correttamente in RP (multa 1k senza patente)
 `);
 
     const menu = new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
-        .setCustomId("patente")
-        .setPlaceholder("Scegli patente")
+        .setCustomId("select_patente")
+        .setPlaceholder("Seleziona patente")
         .addOptions([
           { label: "Patente A", value: "A" },
           { label: "Patente B", value: "B" },
@@ -84,42 +92,39 @@ Multa: 1k
     return interaction.reply({ embeds: [embed], components: [menu], ephemeral: true });
   }
 
-  // SCELTA PATENTE → MODAL
-  if (interaction.isStringSelectMenu()) {
+  // SCELTA PATENTE → QUIZ
+  if (interaction.isStringSelectMenu() && interaction.customId === "select_patente") {
+
     const tipo = interaction.values[0];
 
-    userData.set(interaction.user.id, { tipo });
+    userData.set(interaction.user.id, {
+      tipo,
+      step: 1
+    });
 
     const modal = new ModalBuilder()
-      .setCustomId("quiz_modal")
-      .setTitle("Quiz Patente " + tipo);
+      .setCustomId("quiz_submit")
+      .setTitle(`Quiz Patente ${tipo}`);
 
-    const q1 = new TextInputBuilder()
-      .setCustomId("q1")
-      .setLabel("Domanda 1")
-      .setStyle(TextInputStyle.Short);
-
-    const q2 = new TextInputBuilder()
-      .setCustomId("q2")
-      .setLabel("Domanda 2")
-      .setStyle(TextInputStyle.Short);
-
-    const q3 = new TextInputBuilder()
-      .setCustomId("q3")
-      .setLabel("Domanda 3")
-      .setStyle(TextInputStyle.Short);
+    const q1 = new TextInputBuilder().setCustomId("q1").setLabel("Risposta 1").setStyle(TextInputStyle.Short);
+    const q2 = new TextInputBuilder().setCustomId("q2").setLabel("Risposta 2").setStyle(TextInputStyle.Short);
+    const q3 = new TextInputBuilder().setCustomId("q3").setLabel("Risposta 3").setStyle(TextInputStyle.Short);
+    const q4 = new TextInputBuilder().setCustomId("q4").setLabel("Risposta 4").setStyle(TextInputStyle.Short);
+    const q5 = new TextInputBuilder().setCustomId("q5").setLabel("Risposta 5").setStyle(TextInputStyle.Short);
 
     modal.addComponents(
       new ActionRowBuilder().addComponents(q1),
       new ActionRowBuilder().addComponents(q2),
-      new ActionRowBuilder().addComponents(q3)
+      new ActionRowBuilder().addComponents(q3),
+      new ActionRowBuilder().addComponents(q4),
+      new ActionRowBuilder().addComponents(q5)
     );
 
     return interaction.showModal(modal);
   }
 
-  // INVIO QUIZ
-  if (interaction.isModalSubmit()) {
+  // QUIZ SUBMIT
+  if (interaction.isModalSubmit() && interaction.customId === "quiz_submit") {
 
     const data = userData.get(interaction.user.id);
     if (!data) return;
@@ -127,24 +132,53 @@ Multa: 1k
     data.risposte = [
       interaction.fields.getTextInputValue("q1"),
       interaction.fields.getTextInputValue("q2"),
-      interaction.fields.getTextInputValue("q3")
+      interaction.fields.getTextInputValue("q3"),
+      interaction.fields.getTextInputValue("q4"),
+      interaction.fields.getTextInputValue("q5")
     ];
 
+    data.step = 2;
     userData.set(interaction.user.id, data);
 
     return interaction.reply({
-      content: "✅ Quiz inviato!\n📸 Ora invia QUI la foto del pagamento",
+      content: "✅ Quiz inviato!\n📸 Ora manda la FOTO del pagamento nel canale.",
       ephemeral: true
     });
   }
+
+  // ACCETTA / RIFIUTA STAFF
+  if (interaction.isButton()) {
+
+    if (interaction.customId.startsWith("accetta_")) {
+
+      const id = interaction.customId.split("_")[1];
+      const member = await interaction.guild.members.fetch(id);
+
+      await member.roles.add(RUOLO_PATENTE);
+
+      return interaction.update({
+        content: `✅ PATENTE APPROVATA DA ${interaction.user.tag}`,
+        components: []
+      });
+    }
+
+    if (interaction.customId.startsWith("rifiuta_")) {
+      return interaction.update({
+        content: `❌ PATENTE RIFIUTATA DA ${interaction.user.tag}`,
+        components: []
+      });
+    }
+  }
 });
 
+// =========================
 // FOTO PAGAMENTO
+// =========================
 client.on("messageCreate", async message => {
   if (message.author.bot) return;
 
   const data = userData.get(message.author.id);
-  if (!data) return;
+  if (!data || data.step !== 2) return;
 
   if (message.attachments.size === 0) return;
 
@@ -152,58 +186,37 @@ client.on("messageCreate", async message => {
 
   const embed = new EmbedBuilder()
     .setColor("Green")
-    .setTitle("🚗 NUOVA RICHIESTA")
+    .setTitle("NUOVA PATENTE")
     .setDescription(`
 Utente: <@${message.author.id}>
 Patente: ${data.tipo}
 
-🧠 Risposte:
+Risposte:
 ${data.risposte.join("\n")}
 `);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId("accetta_" + message.author.id)
-      .setLabel("✅ Accetta")
+      .setCustomId(`accetta_${message.author.id}`)
+      .setLabel("ACCETTA")
       .setStyle(ButtonStyle.Success),
 
     new ButtonBuilder()
-      .setCustomId("rifiuta")
-      .setLabel("❌ Rifiuta")
+      .setCustomId(`rifiuta_${message.author.id}`)
+      .setLabel("RIFIUTA")
       .setStyle(ButtonStyle.Danger)
   );
 
-  staff.send({
+  await staff.send({
     embeds: [embed],
     files: message.attachments.map(a => a.url),
     components: [row]
   });
 
   message.reply("📤 Inviato allo staff!");
-});
 
-// ACCETTA
-client.on("interactionCreate", async interaction => {
-  if (!interaction.isButton()) return;
-
-  if (interaction.customId.startsWith("accetta_")) {
-    const userId = interaction.customId.split("_")[1];
-
-    const member = await interaction.guild.members.fetch(userId);
-    await member.roles.add(RUOLO_PATENTE);
-
-    interaction.update({
-      content: "✅ Patente approvata",
-      components: []
-    });
-  }
-
-  if (interaction.customId === "rifiuta") {
-    interaction.update({
-      content: "❌ Patente rifiutata",
-      components: []
-    });
-  }
+  data.step = 3;
+  userData.set(message.author.id, data);
 });
 
 client.login(process.env.TOKEN);
