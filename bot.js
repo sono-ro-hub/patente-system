@@ -1,5 +1,5 @@
 // =========================
-// KEEP ALIVE (RENDER FIX)
+// KEEP ALIVE (RENDER)
 // =========================
 require("http").createServer((req, res) => {
   res.write("Bot attivo");
@@ -52,7 +52,7 @@ const userData = new Map();
 let sent = false;
 
 // =========================
-// TESTO INIZIALE (NON MODIFICATO)
+// TESTO INIZIALE (IDENTICO)
 // =========================
 const START_TEXT = `
 •  🏛️ Dipartimento Trasporti — __Sud Italy RP__
@@ -66,47 +66,47 @@ Consente la guida di __motocicli__ e veicoli a due ruote.
 __🅱️ Patente B__
 Permette di guidare __autovetture__ e veicoli leggeri. 
 __🅲 Patente C-D__
-Permette di far guidare __camion__, __pullman__ o __autobus__.
+Permette di far guidare __camion__, __pullman__ o __autobus__, utili per il trasporto delle merci e delle persone.
 
 ━━━━━━━━━━━━━━━━━━
 __📝Condizioni richieste__
 
-• Essere un __cittadino__ registrato  
-• Avere un __comportamento civile__  
-• Non essere __sospeso__  
-• Conoscere le regole  
+• Essere un __cittadino__ registrato e approvato all’interno del server  
+• Avere un __comportamento civile__ e rispettoso delle regole RP  
+• Non essere __soggetto__ a __sospensioni__ o provvedimenti attivi  
+• Dimostrare una __conoscenza adeguata__ delle norme di circolazione    
 
 ━━━━━━━━━━━━━━━━━━
-⚠️ Il mancato rispetto comporta rifiuto.
+⚠️ Il mancato rispetto dei requisiti comporterà il rifiuto automatico della richiesta.
 `;
 
 // =========================
-// INFO DOPO CLICK
+// INFO PATENTE
 // =========================
 const INFO_PATENTE = `
 __**INFORMAZIONI PATENTE**__
 
 1) Completa il quiz  
 2) Invia 3k a Lessimanuardi123  
-3) Carica screenshot pagamento  
-4) Attendi staff  
+3) Carica screenshot del pagamento  
+4) Attendi lo staff che lo correga  
 `;
 
 // =========================
-// QUIZ (TANTE DOMANDE)
+// QUIZ COMPLETO
 // =========================
 const quiz = {
   A: [
     "Casco obbligatorio?",
     "Fari di giorno?",
     "Rallentare in curva?",
-    "Si può guidare senza patente?",
+    "Guidare senza patente?",
     "Strada bagnata pericolosa?",
     "Contromano permesso?",
     "Limite città 50?",
-    "Clacson emergenza?",
     "Freccia obbligatoria?",
-    "Sorpasso a destra vietato?"
+    "Clacson emergenza?",
+    "Sorpasso a destra?"
   ],
   B: [
     "Cintura obbligatoria?",
@@ -118,13 +118,13 @@ const quiz = {
     "Distanza sicurezza?",
     "Seggiolino bambini?",
     "Precedenza a destra?",
-    "Parcheggio vietato segnalato?"
+    "Parcheggio vietato?"
   ],
   CD: [
     "Limite camion città?",
-    "Cosa fai al rosso?",
+    "Rosso cosa fai?",
     "Ambulanza priorità?",
-    "Freno motore cos'è?",
+    "Freno motore?",
     "Distanza sicurezza?",
     "Parcheggio camion?",
     "Segnale camion?",
@@ -162,14 +162,35 @@ client.once("ready", async () => {
 // =========================
 // QUIZ FUNCTION
 // =========================
-function getBlock(type, step) {
-  return quiz[type].slice(step, step + 5);
+function openQuizModal(interaction, userId) {
+
+  const data = userData.get(userId);
+  const domande = quiz[data.type].slice(data.step, data.step + 5);
+
+  const modal = new ModalBuilder()
+    .setCustomId("quiz_modal")
+    .setTitle(`Quiz (${data.step + 1}-${data.step + domande.length})`);
+
+  domande.forEach((d, i) => {
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId(`q${i}`)
+          .setLabel(d)
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true)
+      )
+    );
+  });
+
+  return interaction.showModal(modal);
 }
 
 // =========================
 // INTERACTIONS
 // =========================
 client.on("interactionCreate", async (interaction) => {
+
   try {
 
     // START
@@ -182,7 +203,7 @@ client.on("interactionCreate", async (interaction) => {
       const menu = new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId("select")
-          .setPlaceholder("Scegli patente")
+          .setPlaceholder("Seleziona patente")
           .addOptions([
             { label: "Patente A", value: "A" },
             { label: "Patente B", value: "B" },
@@ -204,94 +225,54 @@ client.on("interactionCreate", async (interaction) => {
         answers: []
       });
 
-      const domande = getBlock(type, 0);
-
-      const embed = new EmbedBuilder()
-        .setColor("Blue")
-        .setTitle("📋 QUIZ")
-        .setDescription(domande.map((d, i) => `**${i+1}) ${d}**`).join("\n"));
-
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("quiz_next")
-          .setLabel("Rispondi")
-          .setStyle(ButtonStyle.Primary)
-      );
-
-      return interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+      return openQuizModal(interaction, interaction.user.id);
     }
 
-    // APRI MODAL QUIZ
-    if (interaction.isButton() && interaction.customId === "quiz_next") {
-
-      const modal = new ModalBuilder()
-        .setCustomId("quiz_modal")
-        .setTitle("Risposte");
-
-      const input = new TextInputBuilder()
-        .setCustomId("answers")
-        .setLabel("Scrivi risposte (1-5)")
-        .setStyle(TextInputStyle.Paragraph)
-        .setRequired(true);
-
-      modal.addComponents(new ActionRowBuilder().addComponents(input));
-
-      return interaction.showModal(modal);
-    }
-
-    // SUBMIT QUIZ
+    // QUIZ SUBMIT
     if (interaction.isModalSubmit() && interaction.customId === "quiz_modal") {
 
       const data = userData.get(interaction.user.id);
-      const risposte = interaction.fields.getTextInputValue("answers");
 
-      data.answers.push(risposte);
+      const risposte = [];
+      interaction.fields.fields.forEach(f => risposte.push(f.value));
+
+      data.answers.push(...risposte);
       data.step += 5;
 
-      const next = getBlock(data.type, data.step);
+      const next = quiz[data.type].slice(data.step, data.step + 5);
 
-      if (next.length === 0) {
+      if (next.length > 0) {
 
-        const btn = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId("pay")
-            .setLabel("📸 Carica pagamento 3000")
-            .setStyle(ButtonStyle.Success)
-        );
+        await interaction.reply({ content: "Prossime domande...", ephemeral: true });
 
-        return interaction.reply({
-          content: "Quiz completato!",
-          components: [btn],
-          ephemeral: true
-        });
+        setTimeout(() => {
+          openQuizModal(interaction, interaction.user.id);
+        }, 500);
+
+        return;
       }
 
-      const embed = new EmbedBuilder()
-        .setColor("Blue")
-        .setTitle("📋 PROSSIME DOMANDE")
-        .setDescription(next.map((d, i) => `**${i+1}) ${d}**`).join("\n"));
+      const btn = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("pay")
+          .setLabel("📸 Carica pagamento 3000")
+          .setStyle(ButtonStyle.Success)
+      );
 
       return interaction.reply({
-        embeds: [embed],
-        components: [
-          new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-              .setCustomId("quiz_next")
-              .setLabel("Continua")
-              .setStyle(ButtonStyle.Primary)
-          )
-        ],
+        content: "Quiz completato!",
+        components: [btn],
         ephemeral: true
       });
     }
 
-    // PAGAMENTO
+    // PAY
     if (interaction.isButton() && interaction.customId === "pay") {
 
       userData.get(interaction.user.id).awaitPhoto = true;
 
       return interaction.reply({
-        content: "Invia ora la foto QUI in chat (allegato Discord)",
+        content: "Invia la foto QUI come allegato (galleria Discord)",
         ephemeral: true
       });
     }
