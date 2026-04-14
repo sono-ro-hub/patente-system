@@ -20,11 +20,6 @@ app.listen(PORT, () => {
   console.log(`🌐 Server attivo sulla porta ${PORT}`);
 });
 
-// ANTI CRASH
-process.on("unhandledRejection", (err) => {
-  console.log("⚠️ Errore ignorato:", err);
-});
-
 // BOT
 const client = new Client({
   intents: [
@@ -42,39 +37,38 @@ function generatePaymentCode() {
 }
 
 // READY
-client.once("clientReady", () => {
+client.once("clientReady", async () => {
   console.log(`🤖 Bot online: ${client.user.tag}`);
+
+  const guild = client.guilds.cache.first();
+
+  const channel = guild.channels.cache.find(
+    c => c.name === "patenti"
+  );
+
+  if (!channel) return console.log("❌ Canale patenti non trovato");
+
+  const embed = new EmbedBuilder()
+    .setTitle("🚗 RICHIESTA PATENTE")
+    .setDescription("Clicca il bottone per iniziare la richiesta");
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("start_patente")
+      .setLabel("📋 Richiedi patente")
+      .setStyle(ButtonStyle.Primary)
+  );
+
+  await channel.send({
+    embeds: [embed],
+    components: [row]
+  });
 });
 
-// COMANDO /patente
-client.on("interactionCreate", async interaction => {
-  if (!interaction.isChatInputCommand()) return;
-
-  if (interaction.commandName === "patente") {
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("req_auto")
-        .setLabel("🚗 Patente Auto")
-        .setStyle(ButtonStyle.Primary),
-
-      new ButtonBuilder()
-        .setCustomId("req_moto")
-        .setLabel("🏍️ Patente Moto")
-        .setStyle(ButtonStyle.Success)
-    );
-
-    return interaction.reply({
-      content: "📋 Scegli la patente:",
-      components: [row]
-    });
-  }
-});
-
-// BUTTON
+// BUTTON SYSTEM
 client.on("interactionCreate", async interaction => {
   if (!interaction.isButton()) return;
 
-  const id = interaction.customId;
   const userId = interaction.user.id;
 
   if (!userData.has(userId)) {
@@ -83,20 +77,15 @@ client.on("interactionCreate", async interaction => {
 
   const data = userData.get(userId);
 
-  // START
-  if (id.startsWith("req_")) {
-    const type = id.split("_")[1];
-
-    data.type = type;
+  // CLICK PRINCIPALE
+  if (interaction.customId === "start_patente") {
     data.step = 1;
     data.code = generatePaymentCode();
 
     const embed = new EmbedBuilder()
       .setTitle("📋 MODULO PATENTE")
       .setDescription(
-`🏁 Patente: **${type}**
-
-💳 Codice pagamento:
+`💳 Codice pagamento:
 \`${data.code}\`
 
 Step:
@@ -107,32 +96,36 @@ Step:
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId(`quiz_${type}`)
+        .setCustomId("quiz")
         .setLabel("📋 Quiz")
         .setStyle(ButtonStyle.Primary),
 
       new ButtonBuilder()
-        .setCustomId(`pay_${type}`)
+        .setCustomId("pay")
         .setLabel("💳 Pagamento")
         .setStyle(ButtonStyle.Success),
 
       new ButtonBuilder()
-        .setCustomId(`send_${type}`)
+        .setCustomId("send")
         .setLabel("📤 Invia staff")
         .setStyle(ButtonStyle.Secondary)
     );
 
-    return interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+    return interaction.reply({
+      embeds: [embed],
+      components: [row],
+      ephemeral: true
+    });
   }
 
   // QUIZ
-  if (id.startsWith("quiz_")) {
+  if (interaction.customId === "quiz") {
     data.step = 2;
     return interaction.reply({ content: "✅ Quiz completato", ephemeral: true });
   }
 
-  // PAY
-  if (id.startsWith("pay_")) {
+  // PAGAMENTO
+  if (interaction.customId === "pay") {
     data.step = 3;
     return interaction.reply({
       content: `📸 Invia screenshot + codice: ${data.code}`,
@@ -140,8 +133,8 @@ Step:
     });
   }
 
-  // SEND STAFF
-  if (id.startsWith("send_")) {
+  // INVIO STAFF
+  if (interaction.customId === "send") {
     if (data.step < 3) {
       return interaction.reply({
         content: "❌ Completa prima tutto",
@@ -164,7 +157,6 @@ Step:
       .setTitle("🚗 NUOVA RICHIESTA")
       .setDescription(
 `👤 <@${userId}>
-📌 Tipo: ${data.type}
 💳 Codice: ${data.code}`
       );
 
@@ -177,14 +169,13 @@ Step:
   }
 });
 
-// CONTROLLO MESSAGGI (FIX SPAM)
+// CONTROLLO MESSAGGI (NO SPAM)
 client.on("messageCreate", async message => {
   if (message.author.bot) return;
 
   const data = userData.get(message.author.id);
   if (!data || data.step !== 3) return;
 
-  // SOLO se ha scritto qualcosa collegato
   if (!message.content.includes(data.code) && message.attachments.size === 0) return;
 
   const channel = message.guild.channels.cache.find(
@@ -194,7 +185,7 @@ client.on("messageCreate", async message => {
   if (!channel) return;
 
   await channel.send({
-    content: `💳 Pagamento da <@${message.author.id}> | Codice: ${data.code}`,
+    content: `💳 Pagamento <@${message.author.id}> | Codice: ${data.code}`,
     files: message.attachments.map(a => a.url)
   });
 
