@@ -10,6 +10,7 @@ require("http").createServer((req, res) => {
 // IMPORT
 // =========================
 const fs = require("fs");
+const quiz = require("./quiz");
 
 const {
   Client,
@@ -56,16 +57,7 @@ const CANALE_RICHIESTE = "1493595963942768860";
 const CANALE_STAFF = "1493597555760824503";
 const CANALE_PAGAMENTI = "ID_CANALE_PUBBLICO";
 
-// 👑 METTI QUI IL TUO OWNER ID
 const OWNER_ID = "1416503148998033509";
-
-const GUILD_ID = "1493595963942768860";
-
-const RUOLI = {
-  A: "1493609058438090773",
-  B: "1493609132996165633",
-  CD: "1493609213086142645"
-};
 
 // =========================
 // MEMORY
@@ -74,7 +66,7 @@ const userData = new Map();
 let messageSent = false;
 
 // =========================
-// TESTO INIZIALE AGGIORNATO
+// TESTO INIZIALE
 // =========================
 const INFO = `•  🏛️ Dipartimento Trasporti — __Sud Italy RP__
 
@@ -159,7 +151,7 @@ client.on("interactionCreate", async (interaction) => {
       .setCustomId("quiz")
       .setTitle("Quiz Patente");
 
-    quiz[type].forEach((q, i) => {
+    quiz[type].slice(0, 5).forEach((q, i) => {
       modal.addComponents(
         new ActionRowBuilder().addComponents(
           new TextInputBuilder()
@@ -177,7 +169,7 @@ client.on("interactionCreate", async (interaction) => {
 
     const data = userData.get(interaction.user.id);
 
-    data.answers = quiz[data.type].map((_, i) =>
+    data.answers = quiz[data.type].slice(0, 5).map((_, i) =>
       interaction.fields.getTextInputValue(`q${i}`)
     );
 
@@ -191,25 +183,18 @@ client.on("interactionCreate", async (interaction) => {
 });
 
 // =========================
-// FOTO + LOG + AUTO DELETE + PUBBLICO
+// FOTO + LOG + DELETE TOTALE
 // =========================
 client.on("messageCreate", async (msg) => {
 
   if (msg.author.bot) return;
   if (msg.channel.id !== CANALE_RICHIESTE) return;
 
-  // 👑 OWNER NON VIENE CANCELLATO
-  if (msg.author.id === OWNER_ID) return;
-
-  const member = await msg.guild.members.fetch(msg.author.id).catch(() => null);
-  if (!member) return;
-
+  const attachment = msg.attachments.first();
   const data = userData.get(msg.author.id);
 
-  const attachment = msg.attachments.first();
-
-  // ❌ se non valido → elimina
-  if (!data || !data.finished || !attachment || !attachment.contentType?.startsWith("image/")) {
+  // 🧹 CANCELLA TUTTO SEMPRE (anche owner incluso)
+  if (!attachment || !attachment.contentType?.startsWith("image/") || !data || !data.finished) {
     return msg.delete().catch(() => {});
   }
 
@@ -225,13 +210,10 @@ client.on("messageCreate", async (msg) => {
   fs.writeFileSync(PAYMENTS_FILE, JSON.stringify(paymentData, null, 2));
 
   let qa = "";
-  quiz[data.type].forEach((q, i) => {
+  quiz[data.type].slice(0, 5).forEach((q, i) => {
     qa += `**${q}**\n${data.answers[i]}\n\n`;
   });
 
-  // =========================
-  // STAFF LOG
-  // =========================
   const staffEmbed = new EmbedBuilder()
     .setColor("Green")
     .setTitle(`NUOVA PATENTE ${paymentId}`)
@@ -245,9 +227,6 @@ ${qa}
 `)
     .setImage(attachment.url);
 
-  // =========================
-  // PUBBLICO (RICEVUTA RP)
-  // =========================
   const publicEmbed = new EmbedBuilder()
     .setColor("DarkBlue")
     .setTitle("🏛️ DIPARTIMENTO TRASPORTI")
