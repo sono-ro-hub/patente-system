@@ -26,7 +26,7 @@ const {
 } = require("discord.js");
 
 // =========================
-// PAYMENT JSON
+// PAYMENT FILE
 // =========================
 const PAYMENTS_FILE = "./payments.json";
 
@@ -63,34 +63,6 @@ const OWNER_ID = "1416503148998033509";
 // MEMORY
 // =========================
 const userData = new Map();
-let messageSent = false;
-
-// =========================
-// TESTO INIZIALE
-// =========================
-const INFO = `•  🏛️ Dipartimento Trasporti — __Sud Italy RP__
-
-Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
-
-━━━━━━━━━━━━━━━━━━
-📋Tipi di patente
-__🅰️ Patente A__
-Consente la guida di __motocicli__ e veicoli a due ruote.
-__🅱️ Patente B__
-Permette di guidare __autovetture__ e veicoli leggeri. 
-__🅲 Patente C-D__
-Permette di far guidare __camion__, __pullman__ o __autobus__, utili per il trasporto delle merci e delle persone.
-
-━━━━━━━━━━━━━━━━━━
-__📝Condizioni richieste__
-
-• Essere un __cittadino__ registrato e approvato all’interno del server  
-• Avere un __comportamento civile__ e rispettoso delle regole RP  
-• Non essere __soggetto__ a __sospensioni__ o provvedimenti attivi  
-• Dimostrare una __conoscenza adeguata__ delle norme di circolazione    
-
-━━━━━━━━━━━━━━━━━━
-⚠️ Il mancato rispetto dei requisiti comporterà il rifiuto automatico della richiesta.`;
 
 // =========================
 // READY
@@ -100,21 +72,18 @@ client.once("ready", async () => {
 
   const ch = await client.channels.fetch(CANALE_RICHIESTE);
 
-  if (!messageSent) {
-    const embed = new EmbedBuilder()
-      .setColor("Blue")
-      .setDescription(INFO);
+  const embed = new EmbedBuilder()
+    .setColor("Blue")
+    .setDescription("🏛️ Dipartimento Trasporti RP");
 
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("start")
-        .setLabel("Richiedi patente")
-        .setStyle(ButtonStyle.Primary)
-    );
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("start")
+      .setLabel("Richiedi patente")
+      .setStyle(ButtonStyle.Primary)
+  );
 
-    await ch.send({ embeds: [embed], components: [row] });
-    messageSent = true;
-  }
+  await ch.send({ embeds: [embed], components: [row] });
 });
 
 // =========================
@@ -129,23 +98,23 @@ client.on("interactionCreate", async (interaction) => {
         .setCustomId("select")
         .setPlaceholder("Seleziona patente")
         .addOptions([
-          { label: "Patente A", value: "A" },
-          { label: "Patente B", value: "B" },
-          { label: "Patente C-D", value: "CD" }
+          { label: "A", value: "A" },
+          { label: "B", value: "B" },
+          { label: "CD", value: "CD" }
         ])
     );
 
     return interaction.reply({
-      content: "Seleziona la patente:",
+      content: "Seleziona patente:",
       components: [menu],
       ephemeral: true
     });
   }
 
   if (interaction.isStringSelectMenu()) {
-    const type = interaction.values[0];
 
-    userData.set(interaction.user.id, { type, finished: false });
+    const type = interaction.values[0];
+    userData.set(interaction.user.id, { type });
 
     const modal = new ModalBuilder()
       .setCustomId("quiz")
@@ -176,27 +145,32 @@ client.on("interactionCreate", async (interaction) => {
     data.finished = true;
 
     return interaction.reply({
-      content: "📸 Ora invia la foto del pagamento.",
+      content:
+`📸 Invia ora la foto del pagamento nel canale.
+
+👉 Come fare:
+• clicca "+"
+• scegli immagine
+• invia screenshot
+
+⚠️ obbligatorio per completare la richiesta`,
       ephemeral: true
     });
   }
 });
 
 // =========================
-// FOTO + LOG + DELETE TOTALE
+// FOTO + LOG + DELETE
 // =========================
 client.on("messageCreate", async (msg) => {
 
   if (msg.author.bot) return;
   if (msg.channel.id !== CANALE_RICHIESTE) return;
 
-  const attachment = msg.attachments.first();
   const data = userData.get(msg.author.id);
+  const attachment = msg.attachments.first();
 
-  // 🧹 CANCELLA TUTTO SEMPRE (anche owner incluso)
-  if (!attachment || !attachment.contentType?.startsWith("image/") || !data || !data.finished) {
-    return msg.delete().catch(() => {});
-  }
+  if (!attachment || !data || !data.finished) return msg.delete().catch(() => {});
 
   const staff = await client.channels.fetch(CANALE_STAFF);
   const publicChannel = await client.channels.fetch(CANALE_PAGAMENTI);
@@ -209,50 +183,32 @@ client.on("messageCreate", async (msg) => {
   paymentData.counter++;
   fs.writeFileSync(PAYMENTS_FILE, JSON.stringify(paymentData, null, 2));
 
-  let qa = "";
-  quiz[data.type].slice(0, 5).forEach((q, i) => {
-    qa += `**${q}**\n${data.answers[i]}\n\n`;
-  });
+  const image = attachment.url;
 
+  // =========================
+  // STAFF LOG COMPLETO
+  // =========================
   const staffEmbed = new EmbedBuilder()
     .setColor("Green")
     .setTitle(`NUOVA PATENTE ${paymentId}`)
-    .setDescription(`
-🧾 ID Pagamento: ${paymentId}
-👤 Utente: <@${msg.author.id}>
-📅 Data: ${date}
-📘 Tipo: ${data.type}
+    .setDescription(`👤 <@${msg.author.id}>\n📅 ${date}`)
+    .setImage(image);
 
-${qa}
-`)
-    .setImage(attachment.url);
-
+  // =========================
+  // PUBBLICO (SOLO ESSENZIALE)
+  // =========================
   const publicEmbed = new EmbedBuilder()
     .setColor("DarkBlue")
-    .setTitle("🏛️ DIPARTIMENTO TRASPORTI")
-    .setDescription(`
-━━━━━━━━━━━━━━━━━━
-🧾 RICEVUTA UFFICIALE
-
-📄 ID Pagamento: ${paymentId}
-👤 Cittadino: <@${msg.author.id}>
-🚗 Tipo patente: ${data.type}
-📅 Data: ${date}
-
-━━━━━━━━━━━━━━━━━━
-⚠️ Documento ufficiale del Governo RP
-`)
-    .setImage(attachment.url)
-    .setFooter({ text: "Ministero dei Trasporti - Sud Italy RP" });
+    .setTitle("PATENTE RILASCIATA")
+    .setDescription(`👤 <@${msg.author.id}>\n📅 ${date}`)
+    .setImage(image);
 
   await staff.send({ embeds: [staffEmbed] });
   await publicChannel.send({ embeds: [publicEmbed] });
 
   await msg.reply("✅ Pagamento registrato e inviato.");
 
-  setTimeout(() => {
-    msg.delete().catch(() => {});
-  }, 2000);
+  setTimeout(() => msg.delete().catch(() => {}), 2000);
 });
 
 // =========================
