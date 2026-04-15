@@ -10,7 +10,6 @@ require("http").createServer((req, res) => {
 // IMPORT
 // =========================
 const fs = require("fs");
-const quiz = require("./quiz"); // 🔴 FIX IMPORT MANCANTE
 
 const {
   Client,
@@ -24,6 +23,11 @@ const {
   TextInputBuilder,
   TextInputStyle
 } = require("discord.js");
+
+// =========================
+// QUIZ IMPORT (OBBLIGATORIO FILE quiz.js)
+// =========================
+const quiz = require("./quiz");
 
 // =========================
 // PAYMENT JSON
@@ -55,9 +59,15 @@ const client = new Client({
 // =========================
 const CANALE_RICHIESTE = "1493595963942768860";
 const CANALE_STAFF = "1493597555760824503";
-const CANALE_PAGAMENTI = "1494066451152240650"; // 🔴 FIX: METTI ID VERO
+const CANALE_PAGAMENTI = "1494066451152240650"; // 🔴 METTI ID VERO
 
 const OWNER_ID = "1416503148998033509";
+
+const RUOLI = {
+  A: "1493609058438090773",
+  B: "1493609132996165633",
+  CD: "1493609213086142645"
+};
 
 // =========================
 // MEMORY
@@ -66,7 +76,7 @@ const userData = new Map();
 let messageSent = false;
 
 // =========================
-// TESTO INFO (TUO ORIGINALE NON TOCCATO)
+// INFO
 // =========================
 const INFO = `•  🏛️ Dipartimento Trasporti — __Sud Italy RP__
 
@@ -79,18 +89,18 @@ Consente la guida di __motocicli__ e veicoli a due ruote.
 __🅱️ Patente B__
 Permette di guidare __autovetture__ e veicoli leggeri. 
 __🅲 Patente C-D__
-Permette di far guidare __camion__, __pullman__ o __autobus__, utili per il trasporto delle merci e delle persone.
+Permette di far guidare __camion__, __pullman__ o __autobus__.
 
 ━━━━━━━━━━━━━━━━━━
 __📝Condizioni richieste__
 
-• Essere un __cittadino__ registrato e approvato all’interno del server  
-• Avere un __comportamento civile__ e rispettoso delle regole RP  
-• Non essere __soggetto__ a __sospensioni__ o provvedimenti attivi  
-• Dimostrare una __conoscenza adeguata__ delle norme di circolazione    
+• Essere un __cittadino__ registrato  
+• Comportamento civile  
+• Nessuna sospensione  
+• Conoscenza norme  
 
 ━━━━━━━━━━━━━━━━━━
-⚠️ Il mancato rispetto dei requisiti comporterà il rifiuto automatico della richiesta.`;
+⚠️ Il mancato rispetto comporta rifiuto.`;
 
 // =========================
 // READY
@@ -118,6 +128,15 @@ client.once("ready", async () => {
 });
 
 // =========================
+// HELPERS QUIZ PAGINATO
+// =========================
+function getPage(type, page) {
+  const list = quiz[type];
+  const start = page * 5;
+  return list.slice(start, start + 5);
+}
+
+// =========================
 // INTERAZIONI
 // =========================
 client.on("interactionCreate", async (interaction) => {
@@ -139,7 +158,7 @@ client.on("interactionCreate", async (interaction) => {
     return interaction.reply({
       content: "Seleziona la patente:",
       components: [menu],
-      ephemeral: true
+      flags: 64
     });
   }
 
@@ -147,13 +166,20 @@ client.on("interactionCreate", async (interaction) => {
   if (interaction.isStringSelectMenu()) {
 
     const type = interaction.values[0];
-    userData.set(interaction.user.id, { type, finished: false });
+
+    userData.set(interaction.user.id, {
+      type,
+      page: 0,
+      answers: []
+    });
 
     const modal = new ModalBuilder()
       .setCustomId("quiz")
-      .setTitle("Quiz Patente");
+      .setTitle("Quiz Patente - Pagina 1");
 
-    quiz[type].forEach((q, i) => {
+    const page = getPage(type, 0);
+
+    page.forEach((q, i) => {
       modal.addComponents(
         new ActionRowBuilder().addComponents(
           new TextInputBuilder()
@@ -167,38 +193,63 @@ client.on("interactionCreate", async (interaction) => {
     return interaction.showModal(modal);
   }
 
-  // QUIZ SUBMIT
+  // QUIZ MULTI-PAGE
   if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
     const data = userData.get(interaction.user.id);
 
-    data.answers = quiz[data.type].map((_, i) =>
-      interaction.fields.getTextInputValue(`q${i}`)
-    );
+    const pageAnswers = quiz[data.type]
+      .slice(data.page * 5, data.page * 5 + 5)
+      .map((_, i) => interaction.fields.getTextInputValue(`q${i}`));
 
-    data.finished = true;
+    data.answers.push(...pageAnswers);
+    data.page++;
 
-    return interaction.reply({
-      content:
-"📸 Ora invia la foto del pagamento.\n\n👉 Apri il canale, clicca + e carica lo screenshot.",
-      ephemeral: true
+    const next = getPage(data.type, data.page);
+
+    if (next.length === 0) {
+
+      data.finished = true;
+
+      return interaction.reply({
+        content: "📸 Ora invia la foto del pagamento nel canale.",
+        flags: 64
+      });
+    }
+
+    const modal = new ModalBuilder()
+      .setCustomId("quiz")
+      .setTitle(`Quiz Patente - Pagina ${data.page + 1}`);
+
+    next.forEach((q, i) => {
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId(`q${i}`)
+            .setLabel(q)
+            .setStyle(TextInputStyle.Short)
+        )
+      );
     });
+
+    return interaction.showModal(modal);
   }
 
   // BOTTONI STAFF
   if (interaction.isButton()) {
 
-    if (interaction.customId.startsWith("accetta_") || interaction.customId.startsWith("rifiuta_")) {
+    if (interaction.customId.startsWith("accetta_") ||
+        interaction.customId.startsWith("rifiuta_")) {
 
       const modal = new ModalBuilder()
         .setCustomId(`motivo_${interaction.customId}`)
-        .setTitle("Motivo obbligatorio");
+        .setTitle("Motivo");
 
       modal.addComponents(
         new ActionRowBuilder().addComponents(
           new TextInputBuilder()
             .setCustomId("reason")
-            .setLabel("Scrivi il motivo")
+            .setLabel("Scrivi motivo")
             .setStyle(TextInputStyle.Paragraph)
         )
       );
@@ -212,29 +263,27 @@ client.on("interactionCreate", async (interaction) => {
 
     const action = interaction.customId.replace("motivo_", "");
     const userId = action.split("_")[1];
+
     const motivo = interaction.fields.getTextInputValue("reason");
 
     const guild = await client.guilds.fetch(interaction.guildId);
     const member = await guild.members.fetch(userId);
 
-    const tipo = userData.get(userId)?.type;
+    const data = userData.get(userId);
 
     if (action.startsWith("accetta")) {
-
-      await member.roles.add(tipo);
+      await member.roles.add(RUOLI[data.type]);
       await member.send(`✅ Patente APPROVATA\nMotivo: ${motivo}`);
-
     } else {
-
       await member.send(`❌ Patente RIFIUTATA\nMotivo: ${motivo}`);
     }
 
-    return interaction.reply({ content: "Operazione completata." });
+    return interaction.reply({ content: "OK" });
   }
 });
 
 // =========================
-// FOTO + LOG + DELETE FIX
+// FOTO + LOG + PAGAMENTI
 // =========================
 client.on("messageCreate", async (msg) => {
 
@@ -244,7 +293,7 @@ client.on("messageCreate", async (msg) => {
   const data = userData.get(msg.author.id);
   const attachment = msg.attachments.first();
 
-  if (!attachment || !data || !data.finished) {
+  if (!data || !data.finished || !attachment) {
     return msg.delete().catch(() => {});
   }
 
@@ -257,30 +306,25 @@ client.on("messageCreate", async (msg) => {
 
   const paymentId = `#${String(paymentData.counter).padStart(4, "0")}`;
   paymentData.counter++;
-  fs.writeFileSync(PAYMENTS_FILE, JSON.stringify(paymentData, null, 2));
 
-  let qa = "";
-  quiz[data.type].forEach((q, i) => {
-    qa += `**${q}**\n${data.answers[i]}\n\n`;
-  });
+  fs.writeFileSync(PAYMENTS_FILE, JSON.stringify(paymentData, null, 2));
 
   const image = attachment.url;
 
   const staffEmbed = new EmbedBuilder()
-    .setColor("Green")
     .setTitle(`NUOVA PATENTE ${paymentId}`)
-    .setDescription(`👤 <@${msg.author.id}>\n📅 ${date}\n\n${qa}`)
+    .setDescription(`👤 <@${msg.author.id}>\n📅 ${date}`)
     .setImage(image);
 
   const publicEmbed = new EmbedBuilder()
-    .setColor("DarkBlue")
-    .setDescription(`👤 <@${msg.author.id}>\n📅 ${date}`)
+    .setTitle("🏛️ RICEVUTA UFFICIALE")
+    .setDescription(`👤 <@${msg.author.id}>\n📄 ${paymentId}\n📅 ${date}`)
     .setImage(image);
 
   await staff.send({ embeds: [staffEmbed] });
   await publicChannel.send({ embeds: [publicEmbed] });
 
-  await msg.reply("✅ Pagamento registrato e inviato.");
+  await msg.reply("✅ Pagamento inviato");
 
   setTimeout(() => msg.delete().catch(() => {}), 2000);
 });
