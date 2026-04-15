@@ -10,7 +10,7 @@ require("http").createServer((req, res) => {
 // IMPORT
 // =========================
 const fs = require("fs");
-const quiz = require("./quiz");
+const quiz = require("./quiz"); // 🔴 FIX IMPORT MANCANTE
 
 const {
   Client,
@@ -26,7 +26,7 @@ const {
 } = require("discord.js");
 
 // =========================
-// PAYMENT FILE
+// PAYMENT JSON
 // =========================
 const PAYMENTS_FILE = "./payments.json";
 
@@ -55,7 +55,7 @@ const client = new Client({
 // =========================
 const CANALE_RICHIESTE = "1493595963942768860";
 const CANALE_STAFF = "1493597555760824503";
-const CANALE_PAGAMENTI = "1494066451152240650";
+const CANALE_PAGAMENTI = "1494066451152240650"; // 🔴 FIX: METTI ID VERO
 
 const OWNER_ID = "1416503148998033509";
 
@@ -63,6 +63,34 @@ const OWNER_ID = "1416503148998033509";
 // MEMORY
 // =========================
 const userData = new Map();
+let messageSent = false;
+
+// =========================
+// TESTO INFO (TUO ORIGINALE NON TOCCATO)
+// =========================
+const INFO = `•  🏛️ Dipartimento Trasporti — __Sud Italy RP__
+
+Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
+
+━━━━━━━━━━━━━━━━━━
+📋Tipi di patente
+__🅰️ Patente A__
+Consente la guida di __motocicli__ e veicoli a due ruote.
+__🅱️ Patente B__
+Permette di guidare __autovetture__ e veicoli leggeri. 
+__🅲 Patente C-D__
+Permette di far guidare __camion__, __pullman__ o __autobus__, utili per il trasporto delle merci e delle persone.
+
+━━━━━━━━━━━━━━━━━━
+__📝Condizioni richieste__
+
+• Essere un __cittadino__ registrato e approvato all’interno del server  
+• Avere un __comportamento civile__ e rispettoso delle regole RP  
+• Non essere __soggetto__ a __sospensioni__ o provvedimenti attivi  
+• Dimostrare una __conoscenza adeguata__ delle norme di circolazione    
+
+━━━━━━━━━━━━━━━━━━
+⚠️ Il mancato rispetto dei requisiti comporterà il rifiuto automatico della richiesta.`;
 
 // =========================
 // READY
@@ -72,18 +100,21 @@ client.once("ready", async () => {
 
   const ch = await client.channels.fetch(CANALE_RICHIESTE);
 
-  const embed = new EmbedBuilder()
-    .setColor("Blue")
-    .setDescription("🏛️ Dipartimento Trasporti RP");
+  if (!messageSent) {
+    const embed = new EmbedBuilder()
+      .setColor("Blue")
+      .setDescription(INFO);
 
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("start")
-      .setLabel("Richiedi patente")
-      .setStyle(ButtonStyle.Primary)
-  );
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("start")
+        .setLabel("Richiedi patente")
+        .setStyle(ButtonStyle.Primary)
+    );
 
-  await ch.send({ embeds: [embed], components: [row] });
+    await ch.send({ embeds: [embed], components: [row] });
+    messageSent = true;
+  }
 });
 
 // =========================
@@ -91,6 +122,7 @@ client.once("ready", async () => {
 // =========================
 client.on("interactionCreate", async (interaction) => {
 
+  // START
   if (interaction.isButton() && interaction.customId === "start") {
 
     const menu = new ActionRowBuilder().addComponents(
@@ -98,29 +130,30 @@ client.on("interactionCreate", async (interaction) => {
         .setCustomId("select")
         .setPlaceholder("Seleziona patente")
         .addOptions([
-          { label: "A", value: "A" },
-          { label: "B", value: "B" },
-          { label: "CD", value: "CD" }
+          { label: "Patente A", value: "A" },
+          { label: "Patente B", value: "B" },
+          { label: "Patente C-D", value: "CD" }
         ])
     );
 
     return interaction.reply({
-      content: "Seleziona patente:",
+      content: "Seleziona la patente:",
       components: [menu],
       ephemeral: true
     });
   }
 
+  // SELECT
   if (interaction.isStringSelectMenu()) {
 
     const type = interaction.values[0];
-    userData.set(interaction.user.id, { type });
+    userData.set(interaction.user.id, { type, finished: false });
 
     const modal = new ModalBuilder()
       .setCustomId("quiz")
       .setTitle("Quiz Patente");
 
-    quiz[type].slice(0, 5).forEach((q, i) => {
+    quiz[type].forEach((q, i) => {
       modal.addComponents(
         new ActionRowBuilder().addComponents(
           new TextInputBuilder()
@@ -134,11 +167,12 @@ client.on("interactionCreate", async (interaction) => {
     return interaction.showModal(modal);
   }
 
+  // QUIZ SUBMIT
   if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
     const data = userData.get(interaction.user.id);
 
-    data.answers = quiz[data.type].slice(0, 5).map((_, i) =>
+    data.answers = quiz[data.type].map((_, i) =>
       interaction.fields.getTextInputValue(`q${i}`)
     );
 
@@ -146,21 +180,61 @@ client.on("interactionCreate", async (interaction) => {
 
     return interaction.reply({
       content:
-`📸 Invia ora la foto del pagamento nel canale.
-
-👉 Come fare:
-• clicca "+"
-• scegli immagine
-• invia screenshot
-
-⚠️ obbligatorio per completare la richiesta`,
+"📸 Ora invia la foto del pagamento.\n\n👉 Apri il canale, clicca + e carica lo screenshot.",
       ephemeral: true
     });
+  }
+
+  // BOTTONI STAFF
+  if (interaction.isButton()) {
+
+    if (interaction.customId.startsWith("accetta_") || interaction.customId.startsWith("rifiuta_")) {
+
+      const modal = new ModalBuilder()
+        .setCustomId(`motivo_${interaction.customId}`)
+        .setTitle("Motivo obbligatorio");
+
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId("reason")
+            .setLabel("Scrivi il motivo")
+            .setStyle(TextInputStyle.Paragraph)
+        )
+      );
+
+      return interaction.showModal(modal);
+    }
+  }
+
+  // MOTIVO + DM
+  if (interaction.isModalSubmit() && interaction.customId.startsWith("motivo_")) {
+
+    const action = interaction.customId.replace("motivo_", "");
+    const userId = action.split("_")[1];
+    const motivo = interaction.fields.getTextInputValue("reason");
+
+    const guild = await client.guilds.fetch(interaction.guildId);
+    const member = await guild.members.fetch(userId);
+
+    const tipo = userData.get(userId)?.type;
+
+    if (action.startsWith("accetta")) {
+
+      await member.roles.add(tipo);
+      await member.send(`✅ Patente APPROVATA\nMotivo: ${motivo}`);
+
+    } else {
+
+      await member.send(`❌ Patente RIFIUTATA\nMotivo: ${motivo}`);
+    }
+
+    return interaction.reply({ content: "Operazione completata." });
   }
 });
 
 // =========================
-// FOTO + LOG + DELETE
+// FOTO + LOG + DELETE FIX
 // =========================
 client.on("messageCreate", async (msg) => {
 
@@ -170,7 +244,9 @@ client.on("messageCreate", async (msg) => {
   const data = userData.get(msg.author.id);
   const attachment = msg.attachments.first();
 
-  if (!attachment || !data || !data.finished) return msg.delete().catch(() => {});
+  if (!attachment || !data || !data.finished) {
+    return msg.delete().catch(() => {});
+  }
 
   const staff = await client.channels.fetch(CANALE_STAFF);
   const publicChannel = await client.channels.fetch(CANALE_PAGAMENTI);
@@ -183,23 +259,21 @@ client.on("messageCreate", async (msg) => {
   paymentData.counter++;
   fs.writeFileSync(PAYMENTS_FILE, JSON.stringify(paymentData, null, 2));
 
+  let qa = "";
+  quiz[data.type].forEach((q, i) => {
+    qa += `**${q}**\n${data.answers[i]}\n\n`;
+  });
+
   const image = attachment.url;
 
-  // =========================
-  // STAFF LOG COMPLETO
-  // =========================
   const staffEmbed = new EmbedBuilder()
     .setColor("Green")
     .setTitle(`NUOVA PATENTE ${paymentId}`)
-    .setDescription(`👤 <@${msg.author.id}>\n📅 ${date}`)
+    .setDescription(`👤 <@${msg.author.id}>\n📅 ${date}\n\n${qa}`)
     .setImage(image);
 
-  // =========================
-  // PUBBLICO (SOLO ESSENZIALE)
-  // =========================
   const publicEmbed = new EmbedBuilder()
     .setColor("DarkBlue")
-    .setTitle("PATENTE RILASCIATA")
     .setDescription(`👤 <@${msg.author.id}>\n📅 ${date}`)
     .setImage(image);
 
