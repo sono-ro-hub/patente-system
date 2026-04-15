@@ -1,5 +1,5 @@
 // =========================
-// KEEP ALIVE (RENDER FIX)
+// KEEP ALIVE (RENDER)
 // =========================
 require("http").createServer((req, res) => {
   res.write("Bot attivo");
@@ -54,7 +54,7 @@ const userData = new Map();
 let messageSent = false;
 
 // =========================
-// TESTO INIZIALE (NON MODIFICATO)
+// TESTO INIZIALE (TUO)
 // =========================
 const INFO = `•  🏛️ Dipartimento Trasporti — __Sud Italy RP__
 
@@ -81,7 +81,7 @@ __📝Condizioni richieste__
 ⚠️ Il mancato rispetto dei requisiti comporterà il rifiuto automatico della richiesta.`;
 
 // =========================
-// INFO DOPO SCELTA
+// INFO QUIZ
 // =========================
 const INFO2 = `__**INFORMAZIONI PATENTE**__
 
@@ -91,7 +91,7 @@ const INFO2 = `__**INFORMAZIONI PATENTE**__
 4) Attendi lo staff che lo corregga.`;
 
 // =========================
-// QUIZ COMPLETO
+// DOMANDE
 // =========================
 const quiz = {
   A: [
@@ -185,44 +185,63 @@ client.on("interactionCreate", async (interaction) => {
       });
     }
 
-    // SELECT
+    // SELECT → MODULO UNICO
     if (interaction.isStringSelectMenu()) {
 
       const type = interaction.values[0];
 
-      userData.set(interaction.user.id, {
-        type,
-        step: 0,
-        answers: [],
-        finished: false
-      });
+      userData.set(interaction.user.id, { type, finished: false });
 
-      return sendQuiz(interaction, interaction.user.id);
-    }
+      const domande = quiz[type];
 
-    // QUIZ
-    if (interaction.isModalSubmit() && interaction.customId === "quiz") {
+      const modal = new ModalBuilder()
+        .setCustomId("quiz")
+        .setTitle("Quiz Patente");
 
-      await interaction.deferReply({ ephemeral: true });
-
-      const data = userData.get(interaction.user.id);
-
-      interaction.fields.fields.forEach(f => {
-        data.answers.push(f.value);
-      });
-
-      data.step += 5;
-
-      if (data.step < quiz[data.type].length) {
-        await interaction.followUp({ content: "➡️ Prossime domande..." });
-        return sendQuiz(interaction, interaction.user.id);
+      // 4 domande
+      for (let i = 0; i < 4; i++) {
+        modal.addComponents(
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder()
+              .setCustomId(`q${i}`)
+              .setLabel(domande[i])
+              .setStyle(TextInputStyle.Short)
+              .setRequired(true)
+          )
+        );
       }
 
-      data.finished = true;
+      // campo grande
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId("extra")
+            .setLabel("Scrivi QUI tutte le altre risposte")
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(true)
+        )
+      );
 
-      return interaction.followUp({
-        content: "💰 Quiz completato!\n📸 Invia QUI la foto del pagamento (allegato)",
+      return interaction.showModal(modal);
+    }
+
+    // SUBMIT QUIZ
+    if (interaction.isModalSubmit() && interaction.customId === "quiz") {
+
+      await interaction.reply({
+        content: "💰 Quiz inviato!\n📸 Invia QUI la foto del pagamento (allegato)",
+        ephemeral: true
       });
+
+      const data = userData.get(interaction.user.id);
+      data.answers = [];
+
+      for (let i = 0; i < 4; i++) {
+        data.answers.push(interaction.fields.getTextInputValue(`q${i}`));
+      }
+
+      data.answers.push(interaction.fields.getTextInputValue("extra"));
+      data.finished = true;
     }
 
     // STAFF BUTTON
@@ -268,42 +287,13 @@ client.on("interactionCreate", async (interaction) => {
           : `❌ Patente RIFIUTATA\nMotivo: ${motivo}`
       );
 
-      return interaction.reply({
-        content: `Operazione completata\nMotivo: ${motivo}`
-      });
+      return interaction.reply({ content: `Motivo: ${motivo}` });
     }
 
   } catch (e) {
     console.log(e);
   }
 });
-
-// =========================
-// QUIZ FUNCTION
-// =========================
-function sendQuiz(interaction, userId) {
-
-  const data = userData.get(userId);
-  const domande = quiz[data.type].slice(data.step, data.step + 5);
-
-  const modal = new ModalBuilder()
-    .setCustomId("quiz")
-    .setTitle("Quiz Patente");
-
-  domande.forEach((d, i) => {
-    modal.addComponents(
-      new ActionRowBuilder().addComponents(
-        new TextInputBuilder()
-          .setCustomId(`q${i}`)
-          .setLabel(d)
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true)
-      )
-    );
-  });
-
-  return interaction.showModal(modal);
-}
 
 // =========================
 // FOTO PAGAMENTO
@@ -345,7 +335,6 @@ ${data.answers.join("\n")}
   await staff.send({ embeds: [embed], components: [row] });
 
   msg.reply("✅ Inviato allo staff!");
-
   userData.delete(msg.author.id);
 });
 
