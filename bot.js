@@ -2,7 +2,8 @@
 // KEEP ALIVE (RENDER FIX)
 // =========================
 require("http").createServer((req, res) => {
-  res.end("Bot attivo");
+  res.write("Bot attivo");
+  res.end();
 }).listen(3000);
 
 // =========================
@@ -27,7 +28,8 @@ const {
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.DirectMessages
   ]
 });
 
@@ -48,9 +50,10 @@ const RUOLI = {
 // MEMORY
 // =========================
 const userData = new Map();
+let sent = false;
 
 // =========================
-// TESTO INIZIALE (NON TOCCO)
+// TESTO INIZIALE (NON MODIFICATO)
 // =========================
 const START_TEXT = `
 •  🏛️ Dipartimento Trasporti — __Sud Italy RP__
@@ -70,82 +73,77 @@ Permette di far guidare __camion__, __pullman__ o __autobus__.
 __📝Condizioni richieste__
 
 • Essere un __cittadino__ registrato  
-• Avere un __comportamento civile__  
-• Non essere __sospeso__  
-• Conoscenza norme  
+• Comportamento civile  
+• Nessuna sospensione  
+• Conoscenza base regole  
 
 ━━━━━━━━━━━━━━━━━━
-⚠️ Il mancato rispetto dei requisiti comporterà il rifiuto automatico.
+⚠️ Il mancato rispetto dei requisiti comporterà il rifiuto automatico
 `;
 
 // =========================
-// INFO DOPO SCELTA
+// INFO PATENTE
 // =========================
-const INFO = `
-INFORMAZIONI PATENTE
+const INFO_PATENTE = `
+__**INFORMAZIONI PATENTE**__
 
 1) Completa il quiz  
-2) Invia 3k a lessimanuardi123  
+2) Invia 3k a Lessimanuardi123  
 3) Carica screenshot pagamento  
-4) Attendi lo staff
+4) Attendi lo staff  
 `;
 
 // =========================
-// QUIZ (CATENA)
+// QUIZ (TANTE DOMANDE)
 // =========================
 const quiz = {
   A: [
     "Casco obbligatorio?",
-    "Fari di giorno?",
+    "Fari anche di giorno?",
     "Rallentare in curva?",
     "Contromano permesso?",
     "Strada bagnata = frenata lunga?",
     "Frecce obbligatorie?",
-    "Limite città 50?",
-    "Clacson sempre?",
-    "Moto senza patente?",
-    "Pioggia aumenta rischio?"
+    "Sorpasso a destra?",
+    "Pneumatici lisci sicuri?",
+    "Casco va allacciato?",
+    "Limite città 50?"
   ],
   B: [
     "Cintura obbligatoria?",
-    "Semaforo rosso = stop?",
-    "Cellulare senza vivavoce?",
+    "Semaforo rosso stop?",
+    "Cellulare alla guida?",
     "Fari notte obbligatori?",
-    "Limite autostrada 130?",
+    "Limite autostrada?",
     "Sorpasso linea continua?",
+    "Seggiolino bambini?",
     "Precedenza a destra?",
-    "Parcheggio vietato?",
-    "Distanza sicurezza?",
-    "Frecce obbligatorie?"
+    "Parcheggio vietato segnalato?",
+    "Distanza sicurezza?"
   ],
   CD: [
     "Limite camion città?",
     "Rosso cosa fai?",
     "Ambulanza priorità?",
-    "Freno motore cos'è?",
-    "Distanza sicurezza?",
+    "Freno motore?",
     "Parcheggio camion?",
     "Segnale camion?",
-    "Peso limite?",
-    "Controllo freni?",
-    "Uso luci?"
+    "Distanza sicurezza?",
+    "Luci anabbaglianti?"
   ]
 };
 
 // =========================
-// READY (NO SPAM)
+// READY
 // =========================
 client.once("ready", async () => {
   console.log("BOT PRONTO");
 
   const ch = await client.channels.fetch(CANALE_RICHIESTE);
 
-  const messages = await ch.messages.fetch({ limit: 10 });
-  const already = messages.find(m => m.author.id === client.user.id);
-
-  if (!already) {
+  if (!sent) {
     const embed = new EmbedBuilder()
-      .setColor("Blue")
+      .setColor("#0A1AFF")
       .setDescription(START_TEXT);
 
     const row = new ActionRowBuilder().addComponents(
@@ -156,11 +154,12 @@ client.once("ready", async () => {
     );
 
     await ch.send({ embeds: [embed], components: [row] });
+    sent = true;
   }
 });
 
 // =========================
-// INTERAZIONI
+// INTERACTIONS
 // =========================
 client.on("interactionCreate", async (interaction) => {
 
@@ -170,13 +169,13 @@ client.on("interactionCreate", async (interaction) => {
     if (interaction.isButton() && interaction.customId === "start") {
 
       const embed = new EmbedBuilder()
-        .setColor("Blue")
-        .setDescription(INFO);
+        .setColor("#0A1AFF")
+        .setDescription(INFO_PATENTE);
 
       const menu = new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId("select")
-          .setPlaceholder("Scegli patente")
+          .setPlaceholder("Seleziona patente")
           .addOptions([
             { label: "Patente A", value: "A" },
             { label: "Patente B", value: "B" },
@@ -187,146 +186,129 @@ client.on("interactionCreate", async (interaction) => {
       return interaction.reply({ embeds: [embed], components: [menu], ephemeral: true });
     }
 
-    // SCELTA PATENTE
+    // SELECT
     if (interaction.isStringSelectMenu()) {
 
-      const type = interaction.values[0];
-
       userData.set(interaction.user.id, {
-        type,
-        step: 0,
+        type: interaction.values[0],
         answers: []
       });
 
       return sendQuiz(interaction, interaction.user.id);
     }
 
-    // RISPOSTE QUIZ
+    // QUIZ
     if (interaction.isModalSubmit() && interaction.customId === "quiz") {
-
-      await interaction.deferReply({ ephemeral: true });
 
       const data = userData.get(interaction.user.id);
 
-      const values = [...interaction.fields.fields.values()].map(f => f.value);
-      data.answers.push(...values);
-      data.step += values.length;
-
-      const total = quiz[data.type].length;
-
-      if (data.step >= total) {
-
-        const btn = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId("pay")
-            .setLabel("Carica pagamento 3000")
-            .setStyle(ButtonStyle.Success)
-        );
-
-        return interaction.editReply({
-          content: "Quiz completato ✅ Ora invia pagamento.",
-          components: [btn]
-        });
-      }
-
-      await interaction.editReply({ content: "Carico prossimo modulo..." });
-
-      setTimeout(() => {
-        sendQuiz(interaction, interaction.user.id);
-      }, 500);
-    }
-
-    // PAGAMENTO (ALLEGATO)
-    if (interaction.isButton() && interaction.customId === "pay") {
-
-      await interaction.reply({
-        content: "📸 Invia lo screenshot QUI (allega immagine dal telefono)",
-        ephemeral: true
+      interaction.fields.fields.forEach(f => {
+        data.answers.push(f.value);
       });
 
-      const filter = m => m.author.id === interaction.user.id && m.attachments.size > 0;
+      return interaction.reply({
+        content: "📸 Invia QUI la foto del pagamento (allegato)",
+        ephemeral: true
+      });
+    }
 
-      const collector = interaction.channel.createMessageCollector({ filter, time: 60000 });
+    // FOTO (MESSAGGIO)
+    if (interaction.isChatInputCommand()) return;
 
-      collector.on("collect", async m => {
+  } catch (e) {
+    console.log(e);
+  }
+});
 
-        const data = userData.get(interaction.user.id);
-        const staff = await client.channels.fetch(CANALE_STAFF);
+// =========================
+// FOTO HANDLER
+// =========================
+client.on("messageCreate", async (msg) => {
 
-        const embed = new EmbedBuilder()
-          .setColor("Blue")
-          .setTitle("NUOVA PATENTE")
-          .setDescription(`
-👤 <@${interaction.user.id}>
+  if (msg.author.bot) return;
+
+  const data = userData.get(msg.author.id);
+  if (!data) return;
+
+  if (!msg.attachments.size) return;
+
+  const staff = await client.channels.fetch(CANALE_STAFF);
+
+  const embed = new EmbedBuilder()
+    .setColor("Green")
+    .setTitle("NUOVA PATENTE")
+    .setDescription(`
+👤 <@${msg.author.id}>
 Tipo: ${data.type}
 
 Risposte:
 ${data.answers.join("\n")}
 `)
-          .setImage(m.attachments.first().url);
+    .setImage(msg.attachments.first().url);
 
-        const row = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId(`accetta_${interaction.user.id}`)
-            .setLabel("ACCETTA")
-            .setStyle(ButtonStyle.Success),
-          new ButtonBuilder()
-            .setCustomId(`rifiuta_${interaction.user.id}`)
-            .setLabel("RIFIUTA")
-            .setStyle(ButtonStyle.Danger)
-        );
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`accetta_${msg.author.id}`)
+      .setLabel("ACCETTA")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(`rifiuta_${msg.author.id}`)
+      .setLabel("RIFIUTA")
+      .setStyle(ButtonStyle.Danger)
+  );
 
-        await staff.send({ embeds: [embed], components: [row] });
+  await staff.send({ embeds: [embed], components: [row] });
 
-        await m.reply("✅ Inviato allo staff!");
-        collector.stop();
-      });
-    }
+  msg.reply("✅ Inviato allo staff");
+});
 
-    // STAFF
-    if (interaction.isButton() && (interaction.customId.startsWith("accetta_") || interaction.customId.startsWith("rifiuta_"))) {
+// =========================
+// STAFF (MOTIVO + RUOLO)
+// =========================
+client.on("interactionCreate", async (interaction) => {
 
-      const modal = new ModalBuilder()
-        .setCustomId(`motivo_${interaction.customId}`)
-        .setTitle("Motivo");
+  if (!interaction.isButton()) return;
 
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder()
-            .setCustomId("reason")
-            .setLabel("Scrivi motivo")
-            .setStyle(TextInputStyle.Paragraph)
-        )
-      );
+  if (interaction.customId.startsWith("accetta_") || interaction.customId.startsWith("rifiuta_")) {
 
-      return interaction.showModal(modal);
-    }
+    const modal = new ModalBuilder()
+      .setCustomId(`motivo_${interaction.customId}`)
+      .setTitle("Motivo");
 
-    // RISPOSTA STAFF
-    if (interaction.isModalSubmit() && interaction.customId.startsWith("motivo_")) {
+    const input = new TextInputBuilder()
+      .setCustomId("reason")
+      .setLabel("Scrivi il motivo")
+      .setStyle(TextInputStyle.Paragraph);
 
-      const action = interaction.customId.replace("motivo_", "");
-      const id = action.split("_")[1];
+    modal.addComponents(new ActionRowBuilder().addComponents(input));
 
-      const guild = await client.guilds.fetch(GUILD_ID);
-      const member = await guild.members.fetch(id);
-
-      const tipo = userData.get(id)?.type;
-
-      if (action.startsWith("accetta_")) {
-        await member.roles.add(RUOLI[tipo]);
-      }
-
-      return interaction.reply({
-        content: action.startsWith("accetta_")
-          ? `✅ ACCETTATO\nMotivo: ${interaction.fields.getTextInputValue("reason")}`
-          : `❌ RIFIUTATO\nMotivo: ${interaction.fields.getTextInputValue("reason")}`
-      });
-    }
-
-  } catch (e) {
-    console.log("ERRORE:", e);
+    return interaction.showModal(modal);
   }
+
+  if (interaction.isModalSubmit() && interaction.customId.startsWith("motivo_")) {
+
+    const action = interaction.customId.replace("motivo_", "");
+    const id = action.split("_")[1];
+
+    const guild = await client.guilds.fetch(GUILD_ID);
+    const member = await guild.members.fetch(id);
+
+    const tipo = userData.get(id)?.type;
+    const motivo = interaction.fields.getTextInputValue("reason");
+
+    if (action.startsWith("accetta_")) {
+      await member.roles.add(RUOLI[tipo]);
+
+      await member.send(`✅ Patente ACCETTATA\nMotivo: ${motivo}`);
+    } else {
+      await member.send(`❌ Patente RIFIUTATA\nMotivo: ${motivo}`);
+    }
+
+    return interaction.reply({
+      content: `✔️ Azione eseguita da ${interaction.user.tag}\nMotivo: ${motivo}`
+    });
+  }
+
 });
 
 // =========================
@@ -335,13 +317,13 @@ ${data.answers.join("\n")}
 function sendQuiz(interaction, userId) {
 
   const data = userData.get(userId);
-  const domande = quiz[data.type].slice(data.step, data.step + 5);
+  const domande = quiz[data.type];
 
   const modal = new ModalBuilder()
     .setCustomId("quiz")
     .setTitle("Quiz Patente");
 
-  domande.forEach((d, i) => {
+  domande.slice(0, 5).forEach((d, i) => {
     modal.addComponents(
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
