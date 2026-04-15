@@ -94,7 +94,6 @@ client.once("ready", async () => {
     messageSent = true;
   }
 
-  // REGISTRA SLASH COMMAND
   const guild = await client.guilds.fetch(GUILD_ID);
 
   await guild.commands.create(
@@ -177,8 +176,30 @@ client.on("interactionCreate", async (interaction) => {
 
       data.finished = true;
 
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("carica_foto")
+          .setLabel("📸 Carica foto pagamento")
+          .setStyle(ButtonStyle.Success)
+      );
+
       return interaction.reply({
-        content: "✅ Quiz fatto!\n📸 Ora invia la foto del pagamento in questo canale.",
+        content: "✅ Quiz fatto!\n\nPremi il bottone qui sotto per caricare la foto.",
+        components: [row],
+        ephemeral: true
+      });
+    }
+
+    // BOTTONE FOTO
+    if (interaction.isButton() && interaction.customId === "carica_foto") {
+
+      return interaction.reply({
+        content:
+          "📸 Ora fai così:\n\n" +
+          "1) Premi ➕ in basso\n" +
+          "2) Vai su Galleria\n" +
+          "3) Scegli la foto\n" +
+          "4) Invia qui nel canale",
         ephemeral: true
       });
     }
@@ -204,7 +225,7 @@ client.on("messageCreate", async (msg) => {
 
   // SOLO IMMAGINI
   if (!attachment.contentType?.startsWith("image/")) {
-    return msg.reply("❌ Solo immagini dalla galleria!");
+    return msg.reply("❌ Devi inviare una foto dalla galleria!");
   }
 
   const staff = await client.channels.fetch(CANALE_STAFF);
