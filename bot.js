@@ -1,5 +1,5 @@
 // =========================
-// KEEP ALIVE (RENDER)
+// KEEP ALIVE
 // =========================
 require("http").createServer((req, res) => {
   res.write("Bot attivo");
@@ -9,6 +9,8 @@ require("http").createServer((req, res) => {
 // =========================
 // IMPORT
 // =========================
+const fs = require("fs");
+
 const {
   Client,
   GatewayIntentBits,
@@ -19,9 +21,21 @@ const {
   StringSelectMenuBuilder,
   ModalBuilder,
   TextInputBuilder,
-  TextInputStyle,
-  SlashCommandBuilder
+  TextInputStyle
 } = require("discord.js");
+
+// =========================
+// PAYMENT JSON
+// =========================
+const PAYMENTS_FILE = "./payments.json";
+
+let paymentData = { counter: 1 };
+
+if (fs.existsSync(PAYMENTS_FILE)) {
+  paymentData = JSON.parse(fs.readFileSync(PAYMENTS_FILE, "utf8"));
+} else {
+  fs.writeFileSync(PAYMENTS_FILE, JSON.stringify(paymentData, null, 2));
+}
 
 // =========================
 // CLIENT
@@ -40,7 +54,12 @@ const client = new Client({
 // =========================
 const CANALE_RICHIESTE = "1493595963942768860";
 const CANALE_STAFF = "1493597555760824503";
-const GUILD_ID = "1484912853126221896";
+const CANALE_PAGAMENTI = "ID_CANALE_PUBBLICO";
+
+// 👑 METTI QUI IL TUO OWNER ID
+const OWNER_ID = "1416503148998033509";
+
+const GUILD_ID = "1493595963942768860";
 
 const RUOLI = {
   A: "1493609058438090773",
@@ -55,22 +74,31 @@ const userData = new Map();
 let messageSent = false;
 
 // =========================
-// TESTO
+// TESTO INIZIALE AGGIORNATO
 // =========================
-const INFO = `Richiedi patente cliccando il bottone sotto.`;
+const INFO = `•  🏛️ Dipartimento Trasporti — __Sud Italy RP__
 
-const INFO2 = `1) Fai il quiz  
-2) Paga  
-3) Invia foto pagamento`;
+Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
 
-// =========================
-// QUIZ
-// =========================
-const quiz = {
-  A: ["Casco obbligatorio?", "Fari giorno?", "Curva?", "Senza patente?"],
-  B: ["Cintura?", "Rosso?", "Telefono?", "Fari notte?"],
-  CD: ["Limite camion?", "Rosso?", "Ambulanza?", "Freno motore?"]
-};
+━━━━━━━━━━━━━━━━━━
+📋Tipi di patente
+__🅰️ Patente A__
+Consente la guida di __motocicli__ e veicoli a due ruote.
+__🅱️ Patente B__
+Permette di guidare __autovetture__ e veicoli leggeri. 
+__🅲 Patente C-D__
+Permette di far guidare __camion__, __pullman__ o __autobus__, utili per il trasporto delle merci e delle persone.
+
+━━━━━━━━━━━━━━━━━━
+__📝Condizioni richieste__
+
+• Essere un __cittadino__ registrato e approvato all’interno del server  
+• Avere un __comportamento civile__ e rispettoso delle regole RP  
+• Non essere __soggetto__ a __sospensioni__ o provvedimenti attivi  
+• Dimostrare una __conoscenza adeguata__ delle norme di circolazione    
+
+━━━━━━━━━━━━━━━━━━
+⚠️ Il mancato rispetto dei requisiti comporterà il rifiuto automatico della richiesta.`;
 
 // =========================
 // READY
@@ -81,7 +109,9 @@ client.once("ready", async () => {
   const ch = await client.channels.fetch(CANALE_RICHIESTE);
 
   if (!messageSent) {
-    const embed = new EmbedBuilder().setColor("Blue").setDescription(INFO);
+    const embed = new EmbedBuilder()
+      .setColor("Blue")
+      .setDescription(INFO);
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -93,158 +123,157 @@ client.once("ready", async () => {
     await ch.send({ embeds: [embed], components: [row] });
     messageSent = true;
   }
-
-  const guild = await client.guilds.fetch(GUILD_ID);
-
-  await guild.commands.create(
-    new SlashCommandBuilder()
-      .setName("image")
-      .setDescription("Invia una foto per lo staff")
-  );
 });
 
 // =========================
-// INTERACTIONS
+// INTERAZIONI
 // =========================
 client.on("interactionCreate", async (interaction) => {
 
-  try {
+  if (interaction.isButton() && interaction.customId === "start") {
 
-    // SLASH /image
-    if (interaction.isChatInputCommand()) {
-      if (interaction.commandName === "image") {
-        return interaction.reply({
-          content: "📸 Invia una foto in questo canale (solo immagini)",
-          ephemeral: true
-        });
-      }
-    }
+    const menu = new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId("select")
+        .setPlaceholder("Seleziona patente")
+        .addOptions([
+          { label: "Patente A", value: "A" },
+          { label: "Patente B", value: "B" },
+          { label: "Patente C-D", value: "CD" }
+        ])
+    );
 
-    // START
-    if (interaction.isButton() && interaction.customId === "start") {
+    return interaction.reply({
+      content: "Seleziona la patente:",
+      components: [menu],
+      ephemeral: true
+    });
+  }
 
-      const menu = new ActionRowBuilder().addComponents(
-        new StringSelectMenuBuilder()
-          .setCustomId("select")
-          .setPlaceholder("Seleziona patente")
-          .addOptions([
-            { label: "Patente A", value: "A" },
-            { label: "Patente B", value: "B" },
-            { label: "Patente C-D", value: "CD" }
-          ])
+  if (interaction.isStringSelectMenu()) {
+    const type = interaction.values[0];
+
+    userData.set(interaction.user.id, { type, finished: false });
+
+    const modal = new ModalBuilder()
+      .setCustomId("quiz")
+      .setTitle("Quiz Patente");
+
+    quiz[type].forEach((q, i) => {
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId(`q${i}`)
+            .setLabel(q)
+            .setStyle(TextInputStyle.Short)
+        )
       );
+    });
 
-      return interaction.reply({
-        embeds: [new EmbedBuilder().setColor("Blue").setDescription(INFO2)],
-        components: [menu],
-        ephemeral: true
-      });
-    }
+    return interaction.showModal(modal);
+  }
 
-    // SELECT
-    if (interaction.isStringSelectMenu()) {
+  if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
-      const type = interaction.values[0];
-      userData.set(interaction.user.id, { type, finished: false });
+    const data = userData.get(interaction.user.id);
 
-      const modal = new ModalBuilder()
-        .setCustomId("quiz")
-        .setTitle("Quiz");
+    data.answers = quiz[data.type].map((_, i) =>
+      interaction.fields.getTextInputValue(`q${i}`)
+    );
 
-      quiz[type].forEach((q, i) => {
-        modal.addComponents(
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder()
-              .setCustomId(`q${i}`)
-              .setLabel(q)
-              .setStyle(TextInputStyle.Short)
-          )
-        );
-      });
+    data.finished = true;
 
-      return interaction.showModal(modal);
-    }
-
-    // QUIZ SUBMIT
-    if (interaction.isModalSubmit() && interaction.customId === "quiz") {
-
-      const data = userData.get(interaction.user.id);
-
-      data.answers = quiz[data.type].map((_, i) =>
-        interaction.fields.getTextInputValue(`q${i}`)
-      );
-
-      data.finished = true;
-
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("carica_foto")
-          .setLabel("📸 Carica foto pagamento")
-          .setStyle(ButtonStyle.Success)
-      );
-
-      return interaction.reply({
-        content: "✅ Quiz fatto!\n\nPremi il bottone qui sotto per caricare la foto.",
-        components: [row],
-        ephemeral: true
-      });
-    }
-
-    // BOTTONE FOTO
-    if (interaction.isButton() && interaction.customId === "carica_foto") {
-
-      return interaction.reply({
-        content:
-          "📸 Ora fai così:\n\n" +
-          "1) Premi ➕ in basso\n" +
-          "2) Vai su Galleria\n" +
-          "3) Scegli la foto\n" +
-          "4) Invia qui nel canale",
-        ephemeral: true
-      });
-    }
-
-  } catch (e) {
-    console.log(e);
+    return interaction.reply({
+      content: "📸 Ora invia la foto del pagamento.",
+      ephemeral: true
+    });
   }
 });
 
 // =========================
-// FOTO
+// FOTO + LOG + AUTO DELETE + PUBBLICO
 // =========================
 client.on("messageCreate", async (msg) => {
 
   if (msg.author.bot) return;
   if (msg.channel.id !== CANALE_RICHIESTE) return;
 
+  // 👑 OWNER NON VIENE CANCELLATO
+  if (msg.author.id === OWNER_ID) return;
+
+  const member = await msg.guild.members.fetch(msg.author.id).catch(() => null);
+  if (!member) return;
+
   const data = userData.get(msg.author.id);
-  if (!data || !data.finished) return;
 
   const attachment = msg.attachments.first();
-  if (!attachment) return;
 
-  // SOLO IMMAGINI
-  if (!attachment.contentType?.startsWith("image/")) {
-    return msg.reply("❌ Devi inviare una foto dalla galleria!");
+  // ❌ se non valido → elimina
+  if (!data || !data.finished || !attachment || !attachment.contentType?.startsWith("image/")) {
+    return msg.delete().catch(() => {});
   }
 
   const staff = await client.channels.fetch(CANALE_STAFF);
+  const publicChannel = await client.channels.fetch(CANALE_PAGAMENTI);
 
-  const embed = new EmbedBuilder()
+  const date = new Date().toLocaleString("it-IT", {
+    timeZone: "Europe/Rome"
+  });
+
+  const paymentId = `#${String(paymentData.counter).padStart(4, "0")}`;
+  paymentData.counter++;
+  fs.writeFileSync(PAYMENTS_FILE, JSON.stringify(paymentData, null, 2));
+
+  let qa = "";
+  quiz[data.type].forEach((q, i) => {
+    qa += `**${q}**\n${data.answers[i]}\n\n`;
+  });
+
+  // =========================
+  // STAFF LOG
+  // =========================
+  const staffEmbed = new EmbedBuilder()
     .setColor("Green")
-    .setTitle("NUOVA PATENTE")
+    .setTitle(`NUOVA PATENTE ${paymentId}`)
     .setDescription(`
-👤 <@${msg.author.id}>
-Tipo: ${data.type}
+🧾 ID Pagamento: ${paymentId}
+👤 Utente: <@${msg.author.id}>
+📅 Data: ${date}
+📘 Tipo: ${data.type}
 
-${data.answers.join("\n")}
+${qa}
 `)
     .setImage(attachment.url);
 
-  await staff.send({ embeds: [embed] });
+  // =========================
+  // PUBBLICO (RICEVUTA RP)
+  // =========================
+  const publicEmbed = new EmbedBuilder()
+    .setColor("DarkBlue")
+    .setTitle("🏛️ DIPARTIMENTO TRASPORTI")
+    .setDescription(`
+━━━━━━━━━━━━━━━━━━
+🧾 RICEVUTA UFFICIALE
 
-  msg.reply("✅ Inviato allo staff!");
-  userData.delete(msg.author.id);
+📄 ID Pagamento: ${paymentId}
+👤 Cittadino: <@${msg.author.id}>
+🚗 Tipo patente: ${data.type}
+📅 Data: ${date}
+
+━━━━━━━━━━━━━━━━━━
+⚠️ Documento ufficiale del Governo RP
+`)
+    .setImage(attachment.url)
+    .setFooter({ text: "Ministero dei Trasporti - Sud Italy RP" });
+
+  await staff.send({ embeds: [staffEmbed] });
+  await publicChannel.send({ embeds: [publicEmbed] });
+
+  await msg.reply("✅ Pagamento registrato e inviato.");
+
+  setTimeout(() => {
+    msg.delete().catch(() => {});
+  }, 2000);
 });
 
 // =========================
