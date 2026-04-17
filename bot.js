@@ -22,6 +22,9 @@ const client = new Client({
   ]
 });
 
+// =========================
+// CONFIG
+// =========================
 const CANALE_RICHIESTE = "1493595963942768860";
 const CANALE_STAFF = "1493597555760824503";
 
@@ -31,11 +34,27 @@ const RUOLI = {
   CD: "1493609213086142645"
 };
 
+// =========================
+// MEMORY
+// =========================
 const userData = new Map();
 let sent = false;
 
-const INFO = `🏛️ Dipartimento Trasporti — Sud Italy RP`;
+// =========================
+// KEEP ALIVE (RENDER OK)
+// =========================
+const http = require("http");
 
+const server = http.createServer((req, res) => {
+  res.writeHead(200);
+  res.end("Bot attivo");
+});
+
+server.listen(process.env.PORT || 3000);
+
+// =========================
+// READY
+// =========================
 client.once("ready", async () => {
   console.log("BOT PRONTO");
 
@@ -44,7 +63,7 @@ client.once("ready", async () => {
   if (!sent) {
     const embed = new EmbedBuilder()
       .setColor("Blue")
-      .setDescription(INFO);
+      .setDescription("🏛️ Dipartimento Trasporti — Sud Italy RP");
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -58,11 +77,15 @@ client.once("ready", async () => {
   }
 });
 
+// =========================
+// INTERACTIONS
+// =========================
 client.on("interactionCreate", async (interaction) => {
   try {
 
-    // START
+    // START BUTTON
     if (interaction.isButton() && interaction.customId === "start") {
+
       const menu = new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId("select")
@@ -121,14 +144,16 @@ client.on("interactionCreate", async (interaction) => {
       ];
 
       return interaction.reply({
-        content: "📸 Ora invia lo screenshot del pagamento.",
+        content: "📸 Invia ora lo screenshot del pagamento.",
         ephemeral: true
       });
     }
 
-    // STAFF BUTTON
-    if (interaction.isButton() &&
-        (interaction.customId.startsWith("accetta_") || interaction.customId.startsWith("rifiuta_"))) {
+    // STAFF BUTTONS
+    if (
+      interaction.isButton() &&
+      (interaction.customId.startsWith("accetta_") || interaction.customId.startsWith("rifiuta_"))
+    ) {
 
       const modal = new ModalBuilder()
         .setCustomId(`motivo_${interaction.customId}`)
@@ -173,7 +198,9 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
+// =========================
 // FOTO
+// =========================
 client.on("messageCreate", async (msg) => {
 
   if (msg.author.bot) return;
@@ -208,4 +235,7 @@ client.on("messageCreate", async (msg) => {
   userData.delete(msg.author.id);
 });
 
+// =========================
+// LOGIN
+// =========================
 client.login(process.env.TOKEN);
