@@ -33,27 +33,16 @@ const RUOLI = {
 
 // ================= MEMORY =================
 const userData = new Map();
+const pendingRequests = new Map(); // 🔥 FIX IMPORTANTE
 
-// ================= KEEP ALIVE =================
 require("http").createServer((req, res) => res.end("OK")).listen(process.env.PORT || 3000);
 
 // ================= INFO =================
 const INFO = `
 •  🏛️ Dipartimento Trasporti — __Sud Italy RP__
-
-Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale.
-
-━━━━━━━━━━━━━━━━━━
-📋 Patenti:
-A = moto
-B = auto
-C-D = camion/bus
-
-━━━━━━━━━━━━━━━━━━
-⚠️ Rispetta le regole del server
 `;
 
-// ================= QUIZ (5 DOMANDE FISSE PER STABILITÀ) =================
+// ================= QUIZ =================
 const QUESTIONS = [
   "Casco obbligatorio?",
   "Fari anche di giorno?",
@@ -62,7 +51,7 @@ const QUESTIONS = [
   "Semaforo rosso = stop?"
 ];
 
-// ================= READY =================
+// ================= START =================
 client.once("ready", async () => {
   console.log("BOT ONLINE");
 
@@ -82,9 +71,10 @@ client.once("ready", async () => {
   await ch.send({ embeds: [embed], components: [row] });
 });
 
-// ================= START =================
+// ================= INTERACTION =================
 client.on("interactionCreate", async (interaction) => {
 
+  // START
   if (interaction.isButton() && interaction.customId === "start") {
 
     const menu = new ActionRowBuilder().addComponents(
@@ -105,16 +95,14 @@ client.on("interactionCreate", async (interaction) => {
     });
   }
 
-  // ================= SELECT -> QUIZ =================
+  // SELECT -> QUIZ
   if (interaction.isStringSelectMenu()) {
 
     const type = interaction.values[0];
 
     userData.set(interaction.user.id, {
       type,
-      answers: [],
-      step: 0,
-      waitingPhoto: false
+      answers: []
     });
 
     const modal = new ModalBuilder()
@@ -136,7 +124,7 @@ client.on("interactionCreate", async (interaction) => {
     return interaction.showModal(modal);
   }
 
-  // ================= QUIZ SUBMIT =================
+  // QUIZ SUBMIT
   if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
     const data = userData.get(interaction.user.id);
@@ -149,13 +137,58 @@ client.on("interactionCreate", async (interaction) => {
     data.waitingPhoto = true;
 
     return interaction.reply({
-      content: "📸 Ora invia la foto pagamento nel canale patenti (solo allegato)",
+      content: "📸 Invia la foto pagamento nel canale patenti",
       ephemeral: true
     });
   }
+
+  // STAFF BUTTON
+  if (interaction.isButton()) {
+
+    if (!interaction.customId.startsWith("accetta_") &&
+        !interaction.customId.startsWith("rifiuta_")) return;
+
+    const id = interaction.customId.split("_")[1];
+
+    const req = pendingRequests.get(id);
+    if (!req) {
+      return interaction.reply({ content: "Richiesta non trovata", ephemeral: true });
+    }
+
+    const member = await interaction.guild.members.fetch(id).catch(() => null);
+
+    const status = interaction.customId.startsWith("accetta_")
+      ? "APPROVATA"
+      : "RIFIUTATA";
+
+    const embed = new EmbedBuilder()
+      .setTitle(`📄 PATENTE ${status}`)
+      .addFields(
+        { name: "Patente", value: req.type },
+        { name: "Risposte", value: req.answers.join("\n") }
+      );
+
+    if (req.photo) embed.setImage(req.photo);
+
+    const staff = await client.channels.fetch(CANALE_STAFF);
+    await staff.send({ embeds: [embed] });
+
+    if (member) {
+      if (status === "APPROVATA") {
+        await member.roles.add(RUOLI[req.type]);
+        await member.send("✅ Patente approvata");
+      } else {
+        await member.send("❌ Patente rifiutata");
+      }
+    }
+
+    pendingRequests.delete(id);
+
+    return interaction.reply({ content: "✔ Fatto", ephemeral: true });
+  }
 });
 
-// ================= PHOTO HANDLER =================
+// ================= MESSAGE (PHOTO) =================
 client.on("messageCreate", async (msg) => {
 
   if (msg.author.bot) return;
@@ -170,7 +203,14 @@ client.on("messageCreate", async (msg) => {
 
   try { await msg.delete(); } catch {}
 
-  data.photo = img.url;
+  // 🔥 SALVIAMO TUTTO QUI (FIX)
+  pendingRequests.set(msg.author.id, {
+    type: data.type,
+    answers: data.answers,
+    photo: img.url
+  });
+
+  userData.delete(msg.author.id);
 
   const staff = await client.channels.fetch(CANALE_STAFF);
 
@@ -195,35 +235,6 @@ client.on("messageCreate", async (msg) => {
   );
 
   await staff.send({ embeds: [embed], components: [row] });
-
-  userData.delete(msg.author.id);
-});
-
-// ================= STAFF =================
-client.on("interactionCreate", async (interaction) => {
-
-  if (!interaction.isButton()) return;
-
-  if (!interaction.customId.startsWith("accetta_") &&
-      !interaction.customId.startsWith("rifiuta_")) return;
-
-  const id = interaction.customId.split("_")[1];
-  const member = await interaction.guild.members.fetch(id).catch(() => null);
-
-  const type = interaction.customId.startsWith("accetta_") ? "APPROVATA" : "RIFIUTATA";
-
-  if (member) {
-    if (type === "APPROVATA") {
-      const data = userData.get(id);
-      if (data) await member.roles.add(RUOLI[data.type]);
-
-      await member.send("✅ Patente approvata");
-    } else {
-      await member.send("❌ Patente rifiutata");
-    }
-  }
-
-  return interaction.reply({ content: "✔ Fatto", ephemeral: true });
 });
 
 // ================= LOGIN =================
