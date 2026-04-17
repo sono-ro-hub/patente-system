@@ -33,7 +33,7 @@ const RUOLI = {
 
 // ================= MEMORY =================
 const userData = new Map();
-const pendingRequests = new Map(); // 🔥 FIX IMPORTANTE
+const pendingRequests = new Map();
 
 require("http").createServer((req, res) => res.end("OK")).listen(process.env.PORT || 3000);
 
@@ -42,7 +42,7 @@ const INFO = `
 •  🏛️ Dipartimento Trasporti — __Sud Italy RP__
 `;
 
-// ================= QUIZ =================
+// ================= QUESTIONS =================
 const QUESTIONS = [
   "Casco obbligatorio?",
   "Fari anche di giorno?",
@@ -74,7 +74,6 @@ client.once("ready", async () => {
 // ================= INTERACTION =================
 client.on("interactionCreate", async (interaction) => {
 
-  // START
   if (interaction.isButton() && interaction.customId === "start") {
 
     const menu = new ActionRowBuilder().addComponents(
@@ -95,7 +94,7 @@ client.on("interactionCreate", async (interaction) => {
     });
   }
 
-  // SELECT -> QUIZ
+  // QUIZ
   if (interaction.isStringSelectMenu()) {
 
     const type = interaction.values[0];
@@ -137,7 +136,7 @@ client.on("interactionCreate", async (interaction) => {
     data.waitingPhoto = true;
 
     return interaction.reply({
-      content: "📸 Invia la foto pagamento nel canale patenti",
+      content: "📸 **Invia la foto pagamento qui nel canale**\n👉 Clicca il + e allega l'immagine",
       ephemeral: true
     });
   }
@@ -161,14 +160,18 @@ client.on("interactionCreate", async (interaction) => {
       ? "APPROVATA"
       : "RIFIUTATA";
 
+    // ================= BEAUTIFUL EMBED =================
     const embed = new EmbedBuilder()
       .setTitle(`📄 PATENTE ${status}`)
+      .setColor(status === "APPROVATA" ? "Green" : "Red")
+      .setThumbnail(member?.user.displayAvatarURL())
       .addFields(
-        { name: "Patente", value: req.type },
-        { name: "Risposte", value: req.answers.join("\n") }
-      );
-
-    if (req.photo) embed.setImage(req.photo);
+        { name: "👤 Utente", value: `<@${id}>` },
+        { name: "🚗 Patente richiesta", value: req.type },
+        { name: "🧠 Risposte quiz", value: req.answers.join("\n") }
+      )
+      .setImage(req.photo)
+      .setFooter({ text: "Sistema Patenti Sud Italy RP" });
 
     const staff = await client.channels.fetch(CANALE_STAFF);
     await staff.send({ embeds: [embed] });
@@ -184,11 +187,11 @@ client.on("interactionCreate", async (interaction) => {
 
     pendingRequests.delete(id);
 
-    return interaction.reply({ content: "✔ Fatto", ephemeral: true });
+    return interaction.reply({ content: "✔ Operazione completata", ephemeral: true });
   }
 });
 
-// ================= MESSAGE (PHOTO) =================
+// ================= PHOTO =================
 client.on("messageCreate", async (msg) => {
 
   if (msg.author.bot) return;
@@ -201,9 +204,9 @@ client.on("messageCreate", async (msg) => {
   const img = msg.attachments.first();
   if (!img) return;
 
+  // 🔥 cancella messaggio ma NON perde immagine
   try { await msg.delete(); } catch {}
 
-  // 🔥 SALVIAMO TUTTO QUI (FIX)
   pendingRequests.set(msg.author.id, {
     type: data.type,
     answers: data.answers,
@@ -218,8 +221,9 @@ client.on("messageCreate", async (msg) => {
     .setTitle("📄 NUOVA RICHIESTA PATENTE")
     .setDescription(`<@${msg.author.id}>`)
     .addFields(
-      { name: "Patente", value: data.type },
-      { name: "Risposte", value: data.answers.join("\n") }
+      { name: "🚗 Patente", value: data.type },
+      { name: "🧠 Risposte", value: data.answers.join("\n") },
+      { name: "📸 Stato", value: "Foto ricevuta ✔" }
     )
     .setImage(img.url);
 
