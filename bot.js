@@ -90,7 +90,7 @@ client.on("interactionCreate", async (interaction) => {
     });
   }
 
-  // SELECT -> QUIZ
+  // QUIZ
   if (interaction.isStringSelectMenu()) {
 
     const type = interaction.values[0];
@@ -155,13 +155,14 @@ client.on("interactionCreate", async (interaction) => {
       .setStyle(TextInputStyle.Paragraph)
       .setRequired(true);
 
-    const row = new ActionRowBuilder().addComponents(input);
-    modal.addComponents(row);
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(input)
+    );
 
     return interaction.showModal(modal);
   }
 
-  // ================= MOTIVO =================
+  // ================= MOTIVO + STAFF RESULT =================
   if (interaction.isModalSubmit() && interaction.customId.startsWith("motivo_")) {
 
     const actionFull = interaction.customId.replace("motivo_", "");
@@ -176,22 +177,28 @@ client.on("interactionCreate", async (interaction) => {
 
     const decision = action === "accetta" ? "APPROVATA" : "RIFIUTATA";
 
+    // ================= FORMAT CORRETTO PER CORREZIONE STAFF =================
     const qa = req.answers
-      .map((a, i) => `**${QUESTIONS[i]}** → ${a}`)
-      .join("\n");
+      .map((a, i) =>
+        `**${i + 1}. ${QUESTIONS[i]}**
+➡️ Risposta: **${a}**`
+      )
+      .join("\n\n");
 
-    // 🔥 FIX FOTO (FILE vero, NON URL)
-    const file = req.photo ? [{ attachment: req.photo, name: "pagamento.png" }] : [];
+    // ================= FOTO FIX (BUFFER SAFE) =================
+    const file = req.photo
+      ? [{ attachment: req.photo, name: "pagamento.png" }]
+      : [];
 
     const embed = new EmbedBuilder()
       .setTitle(`📄 PATENTE ${decision}`)
       .setColor(decision === "APPROVATA" ? "Green" : "Red")
       .addFields(
         { name: "👤 Utente", value: `<@${id}>`, inline: true },
-        { name: "🚗 Patente", value: req.type, inline: true },
-        { name: "🧠 Quiz", value: qa },
-        { name: "📝 Motivazione", value: reason },
-        { name: "👮 Deciso da", value: `<@${interaction.user.id}>` }
+        { name: "🚗 Patente richiesta", value: req.type, inline: true },
+        { name: "📋 CORREZIONE QUIZ", value: qa },
+        { name: "📝 Motivazione staff", value: reason },
+        { name: "👮 Decisione di", value: `<@${interaction.user.id}>` }
       )
       .setFooter({ text: "Sistema Patenti Sud Italy RP" });
 
@@ -217,7 +224,7 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
-// ================= PHOTO =================
+// ================= PHOTO HANDLER =================
 client.on("messageCreate", async (msg) => {
 
   if (msg.author.bot) return;
@@ -227,15 +234,20 @@ client.on("messageCreate", async (msg) => {
 
   if (msg.channel.id !== CANALE_PATENTI) return;
 
-  const img = msg.attachments.first();
-  if (!img) return;
+  const attachment = msg.attachments.first();
+  if (!attachment) return;
+
+  // 🔥 download sicuro PRIMA di delete
+  const fetch = await import("node-fetch");
+  const res = await fetch.default(attachment.url);
+  const buffer = Buffer.from(await res.arrayBuffer());
 
   try { await msg.delete(); } catch {}
 
   pendingRequests.set(msg.author.id, {
     type: data.type,
     answers: data.answers,
-    photo: img.url
+    photo: buffer
   });
 
   userData.delete(msg.author.id);
@@ -250,7 +262,7 @@ client.on("messageCreate", async (msg) => {
       { name: "🧠 Risposte", value: data.answers.join("\n") },
       { name: "📸 Stato", value: "Foto ricevuta ✔" }
     )
-    .setImage(img.url);
+    .setImage(attachment.url);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
