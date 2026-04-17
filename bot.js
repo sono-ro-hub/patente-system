@@ -1,13 +1,3 @@
-// =========================
-// KEEP ALIVE
-// =========================
-require("http").createServer((req, res) => {
-  res.end("Bot attivo");
-}).listen(3000);
-
-// =========================
-// IMPORT
-// =========================
 const {
   Client,
   GatewayIntentBits,
@@ -21,9 +11,8 @@ const {
   TextInputStyle
 } = require("discord.js");
 
-// =========================
-// CLIENT
-// =========================
+const { QUIZ } = require("./quiz");
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -33,9 +22,6 @@ const client = new Client({
   ]
 });
 
-// =========================
-// CONFIG
-// =========================
 const CANALE_RICHIESTE = "1493595963942768860";
 const CANALE_STAFF = "1493597555760824503";
 
@@ -45,42 +31,11 @@ const RUOLI = {
   CD: "1493609213086142645"
 };
 
-// =========================
-// MEMORY
-// =========================
 const userData = new Map();
 let sent = false;
 
-// =========================
-// INFO (NON TOCCARE)
-// =========================
-const INFO = `•  🏛️ Dipartimento Trasporti — __Sud Italy RP__
+const INFO = `🏛️ Dipartimento Trasporti — Sud Italy RP`;
 
-Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
-
-━━━━━━━━━━━━━━━━━━
-📋Tipi di patente
-__🅰️ Patente A__
-Consente la guida di __motocicli__ e veicoli a due ruote.
-__🅱️ Patente B__
-Permette di guidare __autovetture__ e veicoli leggeri. 
-__🅲 Patente C-D__
-Permette di far guidare __camion__, __pullman__ o __autobus__, utili per il trasporto delle merci e delle persone.
-
-━━━━━━━━━━━━━━━━━━
-__📝Condizioni richieste__
-
-• Essere un __cittadino__ registrato e approvato all’interno del server  
-• Avere un __comportamento civile__ e rispettoso delle regole RP  
-• Non essere __soggetto__ a __sospensioni__ o provvedimenti attivi  
-• Dimostrare una __conoscenza adeguata__ delle norme di circolazione    
-
-━━━━━━━━━━━━━━━━━━
-⚠️ Il mancato rispetto dei requisiti comporterà il rifiuto automatico della richiesta.`;
-
-// =========================
-// READY
-// =========================
 client.once("ready", async () => {
   console.log("BOT PRONTO");
 
@@ -103,16 +58,11 @@ client.once("ready", async () => {
   }
 });
 
-// =========================
-// INTERAZIONI
-// =========================
 client.on("interactionCreate", async (interaction) => {
-
   try {
 
     // START
     if (interaction.isButton() && interaction.customId === "start") {
-
       const menu = new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId("select")
@@ -131,55 +81,33 @@ client.on("interactionCreate", async (interaction) => {
       });
     }
 
-    // SELECT → MODULO UNICO
-    if (interaction.isStringSelectMenu()) {
+    // SELECT → QUIZ DINAMICO
+    if (interaction.isStringSelectMenu() && interaction.customId === "select") {
 
       const type = interaction.values[0];
-
       userData.set(interaction.user.id, { type });
+
+      const questions = QUIZ[type].slice(0, 5);
 
       const modal = new ModalBuilder()
         .setCustomId("quiz")
         .setTitle("Quiz Patente");
 
-      // BLOCCO 1
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder()
-            .setCustomId("q1")
-            .setLabel("Casco obbligatorio?")
-            .setStyle(TextInputStyle.Short)
-        ),
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder()
-            .setCustomId("q2")
-            .setLabel("Semaforo rosso = stop?")
-            .setStyle(TextInputStyle.Short)
-        ),
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder()
-            .setCustomId("q3")
-            .setLabel("Limite città 50?")
-            .setStyle(TextInputStyle.Short)
-        ),
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder()
-            .setCustomId("q4")
-            .setLabel("Sorpasso a destra?")
-            .setStyle(TextInputStyle.Short)
-        ),
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder()
-            .setCustomId("q5")
-            .setLabel("Cintura obbligatoria?")
-            .setStyle(TextInputStyle.Short)
-        )
-      );
+      questions.forEach((q, i) => {
+        modal.addComponents(
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder()
+              .setCustomId(`q${i + 1}`)
+              .setLabel(q.slice(0, 45))
+              .setStyle(TextInputStyle.Short)
+          )
+        );
+      });
 
       return interaction.showModal(modal);
     }
 
-    // QUIZ
+    // QUIZ SUBMIT
     if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
       const data = userData.get(interaction.user.id);
@@ -193,32 +121,29 @@ client.on("interactionCreate", async (interaction) => {
       ];
 
       return interaction.reply({
-        content: "📸 Ora invia lo screenshot pagamento (allega immagine)",
+        content: "📸 Ora invia lo screenshot del pagamento.",
         ephemeral: true
       });
     }
 
-    // STAFF BOTTONI
-    if (interaction.isButton()) {
+    // STAFF BUTTON
+    if (interaction.isButton() &&
+        (interaction.customId.startsWith("accetta_") || interaction.customId.startsWith("rifiuta_"))) {
 
-      if (interaction.customId.startsWith("accetta_") ||
-          interaction.customId.startsWith("rifiuta_")) {
+      const modal = new ModalBuilder()
+        .setCustomId(`motivo_${interaction.customId}`)
+        .setTitle("Motivo");
 
-        const modal = new ModalBuilder()
-          .setCustomId(`motivo_${interaction.customId}`)
-          .setTitle("Motivo");
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId("reason")
+            .setLabel("Scrivi il motivo")
+            .setStyle(TextInputStyle.Paragraph)
+        )
+      );
 
-        modal.addComponents(
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder()
-              .setCustomId("reason")
-              .setLabel("Scrivi il motivo")
-              .setStyle(TextInputStyle.Paragraph)
-          )
-        );
-
-        return interaction.showModal(modal);
-      }
+      return interaction.showModal(modal);
     }
 
     // MOTIVO + RUOLO
@@ -230,6 +155,8 @@ client.on("interactionCreate", async (interaction) => {
 
       const member = await interaction.guild.members.fetch(id);
       const data = userData.get(id);
+
+      if (!data) return interaction.reply({ content: "Errore dati", ephemeral: true });
 
       if (action.startsWith("accetta")) {
         await member.roles.add(RUOLI[data.type]);
@@ -246,9 +173,7 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
-// =========================
 // FOTO
-// =========================
 client.on("messageCreate", async (msg) => {
 
   if (msg.author.bot) return;
@@ -283,7 +208,4 @@ client.on("messageCreate", async (msg) => {
   userData.delete(msg.author.id);
 });
 
-// =========================
-// LOGIN
-// =========================
 client.login(process.env.TOKEN);
