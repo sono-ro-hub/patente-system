@@ -37,7 +37,7 @@ const pending = new Map();
 
 require("http").createServer((req, res) => res.end("OK")).listen(process.env.PORT || 3000);
 
-// ================= DOMANDE REALI =================
+// ================= DOMANDE =================
 const QUESTIONS = {
   A: [
     "Il casco è obbligatorio quando guidi la moto?",
@@ -107,10 +107,9 @@ client.once("ready", async () => {
   await ch.send({ embeds: [embed], components: [row] });
 });
 
-// ================= INTERACTION =================
+// ================= START MENU =================
 client.on("interactionCreate", async (interaction) => {
 
-  // START
   if (interaction.isButton() && interaction.customId === "start") {
 
     const menu = new ActionRowBuilder().addComponents(
@@ -124,18 +123,21 @@ client.on("interactionCreate", async (interaction) => {
         ])
     );
 
-    return interaction.reply({ content: "Seleziona patente:", components: [menu], ephemeral: true });
+    return interaction.reply({
+      content: "Seleziona patente:",
+      components: [menu],
+      ephemeral: true
+    });
   }
 
-  // QUIZ
+  // ================= QUIZ =================
   if (interaction.isStringSelectMenu()) {
 
     const type = interaction.values[0];
 
     userData.set(interaction.user.id, {
       type,
-      answers: [],
-      step: 0
+      answers: []
     });
 
     const modal = new ModalBuilder()
@@ -157,7 +159,7 @@ client.on("interactionCreate", async (interaction) => {
     return interaction.showModal(modal);
   }
 
-  // QUIZ SUBMIT
+  // ================= QUIZ SUBMIT =================
   if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
     const data = userData.get(interaction.user.id);
@@ -176,10 +178,9 @@ client.on("interactionCreate", async (interaction) => {
       ephemeral: true
     });
   }
-
 });
 
-// ================= FOTO + DELETE MESSAGES =================
+// ================= FOTO HANDLER (FIX VERO) =================
 client.on("messageCreate", async (msg) => {
 
   if (msg.author.bot) return;
@@ -191,13 +192,16 @@ client.on("messageCreate", async (msg) => {
   const attachment = msg.attachments.first();
   if (!attachment) return;
 
-  // ❌ cancella messaggio utente
+  // 🔥 DOWNLOAD FOTO PRIMA DI DELETE
+  const res = await fetch(attachment.url);
+  const buffer = Buffer.from(await res.arrayBuffer());
+
   try { await msg.delete(); } catch {}
 
   pending.set(msg.author.id, {
     type: data.type,
     answers: data.answers,
-    photo: attachment.url
+    photo: buffer
   });
 
   userData.delete(msg.author.id);
@@ -254,7 +258,7 @@ client.on("interactionCreate", async (interaction) => {
   return interaction.showModal(modal);
 });
 
-// ================= MOTIVO + RISULTATO =================
+// ================= RESULT =================
 client.on("interactionCreate", async (interaction) => {
 
   if (!interaction.isModalSubmit()) return;
@@ -288,11 +292,16 @@ client.on("interactionCreate", async (interaction) => {
       { name: "📝 Motivo", value: reason },
       { name: "👮 Staff", value: `<@${interaction.user.id}>` }
     )
-    .setImage(req.photo);
+    .setImage(req.photo ? "attachment://pagamento.png" : null);
 
   const staff = await client.channels.fetch(CANALE_STAFF);
 
-  await staff.send({ embeds: [embed] });
+  await staff.send({
+    embeds: [embed],
+    files: req.photo
+      ? [{ attachment: req.photo, name: "pagamento.png" }]
+      : []
+  });
 
   if (member) {
     if (decision === "APPROVATA") {
