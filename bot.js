@@ -42,24 +42,79 @@ http.createServer((req, res) => {
 const INFO = `
 🏛️ Dipartimento Trasporti — Sud Italy RP
 
-Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
-
 ━━━━━━━━━━━━━━━━━━
 📋 Tipi di patente
-🅰️ Patente A → Moto
-🅱️ Patente B → Auto
-🅲 Patente C-D → Camion / Bus
+🅰️ A Moto
+🅱️ B Auto
+🅲 C-D Camion/Bus
 
 ━━━━━━━━━━━━━━━━━━
-📝 Requisiti
+📝 Regole
 • cittadino registrato
 • comportamento civile
 • no sospensioni
-• conoscenza regole RP
+• conoscenza RP
 
 ━━━━━━━━━━━━━━━━━━
-⚠️ Rifiuto automatico se non rispetti i requisiti
+⚠️ Rifiuto automatico se non rispetti
 `;
+
+// ================= QUIZ (TUO) =================
+const QUIZ = {
+  A: [
+    "Il casco è obbligatorio quando guidi la moto?",
+    "I fari devono essere accesi anche di giorno?",
+    "In curva bisogna rallentare prima di entrarci?",
+    "Posso guidare senza guanti?",
+    "Su strada bagnata la frenata è più lunga?",
+
+    "Il freno anteriore è più potente?",
+    "È vietato superare a destra?",
+    "Pneumatici lisci sono sicuri?",
+    "La freccia è obbligatoria?",
+    "Il casco deve essere allacciato?",
+
+    "Posso guidare contromano?",
+    "Il limite urbano è 50 km/h?",
+    "Si può guidare senza patente?",
+    "Con pioggia aumenta distanza?",
+    "Il clacson è solo per emergenza?"
+  ],
+
+  B: [
+    "Il casco è obbligatorio in auto?",
+    "In città il limite è 50 km/h?",
+    "La cintura va sempre allacciata?",
+    "Posso sorpassare con linea continua?",
+    "La distanza di sicurezza serve?",
+
+    "Il semaforo rosso significa stop?",
+    "Posso usare telefono senza vivavoce?",
+    "I fari vanno accesi di notte?",
+    "La frenata sul bagnato è più lunga?",
+    "I bambini devono usare seggiolini?",
+
+    "La precedenza a destra vale sempre?",
+    "Il parcheggio vietato è segnalato?",
+    "Il sorpasso a sinistra è obbligatorio?",
+    "Bisogna rispettare i limiti?",
+    "Autostrada limite 130 km/h?"
+  ],
+
+  CD: [
+    "Limite camion in città?",
+    "Cosa fai al semaforo rosso?",
+    "Chi ha precedenza agli incroci?",
+    "Quando accendi anabbaglianti?",
+    "Come comportarsi con ambulanza?",
+
+    "Veicolo per più persone?",
+    "Cos’è distanza sicurezza?",
+    "Cos’è freno motore?",
+    "Dove parcheggiano camion?",
+    "Significato segnale camion?"
+  ]
+};
 
 // ================= READY =================
 client.once("ready", async () => {
@@ -80,31 +135,6 @@ client.once("ready", async () => {
 
   await ch.send({ embeds: [embed], components: [row] });
 });
-
-// ================= DOMANDE ORIGINALI =================
-const QUIZ = {
-  A: [
-    "Il casco è obbligatorio quando guidi la moto?",
-    "È vietato superare a destra?",
-    "Il limite urbano è 50 km/h?",
-    "Il casco deve essere allacciato?",
-    "La freccia è obbligatoria?"
-  ],
-  B: [
-    "La cintura va sempre allacciata?",
-    "Il semaforo rosso significa stop?",
-    "I bambini devono usare seggiolini?",
-    "Bisogna rispettare i limiti?",
-    "La distanza di sicurezza serve?"
-  ],
-  CD: [
-    "Cosa fai al semaforo rosso?",
-    "Chi ha precedenza agli incroci?",
-    "Cos’è distanza sicurezza?",
-    "Dove parcheggiano i camion?",
-    "Come comportarsi con ambulanza?"
-  ]
-};
 
 // ================= START =================
 client.on("interactionCreate", async (interaction) => {
@@ -137,7 +167,7 @@ client.on("interactionCreate", async (interaction) => {
 
       userData.set(interaction.user.id, {
         type,
-        paymentMode: false
+        waitingUpload: false
       });
 
       const questions = QUIZ[type];
@@ -165,11 +195,11 @@ client.on("interactionCreate", async (interaction) => {
 
       userData.set(interaction.user.id, {
         ...userData.get(interaction.user.id),
-        paymentMode: true
+        waitingUpload: true
       });
 
       return interaction.reply({
-        content: "✔️ Quiz completato!\nOra invia il pagamento con il bottone.",
+        content: "✔️ Quiz completato!\nOra invia la foto del pagamento con il + (galleria Discord).",
         components: [
           new ActionRowBuilder().addComponents(
             new ButtonBuilder()
@@ -182,7 +212,7 @@ client.on("interactionCreate", async (interaction) => {
       });
     }
 
-    // ================= PAY BUTTON =================
+    // ================= PAY =================
     if (interaction.isButton() && interaction.customId === "pay") {
 
       userData.set(interaction.user.id, {
@@ -191,7 +221,7 @@ client.on("interactionCreate", async (interaction) => {
       });
 
       return interaction.reply({
-        content: "📸 Ora INVIA QUI la foto del pagamento usando il + (galleria Discord).",
+        content: "📸 Invia ORA la foto (clicca + e carica immagine).",
         ephemeral: true
       });
     }
@@ -201,12 +231,19 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
-// ================= UPLOAD FOTO =================
+// ================= MESSAGE HANDLER (CANCELLA TUTTO) =================
 client.on("messageCreate", async (msg) => {
 
   if (msg.author.bot) return;
 
   const data = userData.get(msg.author.id);
+
+  // ❌ CANCELLA TUTTI I MESSAGGI UTENTE
+  if (data) {
+    try {
+      await msg.delete();
+    } catch {}
+  }
 
   if (!data || !data.waitingUpload) return;
 
@@ -232,8 +269,6 @@ client.on("messageCreate", async (msg) => {
   );
 
   await staff.send({ embeds: [embed], components: [row] });
-
-  await msg.reply("✔️ Pagamento inviato allo staff");
 
   userData.delete(msg.author.id);
 });
