@@ -21,8 +21,6 @@ const {
   TextInputStyle
 } = require("discord.js");
 
-const quiz = require("./quiz");
-
 // =========================
 // CLIENT
 // =========================
@@ -40,7 +38,6 @@ const client = new Client({
 // =========================
 const CANALE_RICHIESTE = "1493595963942768860";
 const CANALE_STAFF = "1493597555760824503";
-const CANALE_PAGAMENTI = "1494066451152240650";
 
 const RUOLI = {
   A: "1493609058438090773",
@@ -52,10 +49,10 @@ const RUOLI = {
 // MEMORY
 // =========================
 const userData = new Map();
-let messageSent = false;
+let sent = false;
 
 // =========================
-// INFO (NON TOCCATA)
+// INFO (NON TOCCARE)
 // =========================
 const INFO = `•  🏛️ Dipartimento Trasporti — __Sud Italy RP__
 
@@ -89,7 +86,7 @@ client.once("ready", async () => {
 
   const ch = await client.channels.fetch(CANALE_RICHIESTE);
 
-  if (!messageSent) {
+  if (!sent) {
     const embed = new EmbedBuilder()
       .setColor("Blue")
       .setDescription(INFO);
@@ -102,16 +99,9 @@ client.once("ready", async () => {
     );
 
     await ch.send({ embeds: [embed], components: [row] });
-    messageSent = true;
+    sent = true;
   }
 });
-
-// =========================
-// QUIZ PAGINATO
-// =========================
-function getPage(type, page) {
-  return quiz[type].slice(page * 5, page * 5 + 5);
-}
 
 // =========================
 // INTERAZIONI
@@ -141,32 +131,50 @@ client.on("interactionCreate", async (interaction) => {
       });
     }
 
-    // SELECT
+    // SELECT → MODULO UNICO
     if (interaction.isStringSelectMenu()) {
 
       const type = interaction.values[0];
 
-      userData.set(interaction.user.id, {
-        type,
-        page: 0,
-        answers: [],
-        finished: false
-      });
+      userData.set(interaction.user.id, { type });
 
       const modal = new ModalBuilder()
         .setCustomId("quiz")
-        .setTitle("Quiz Patente - Pagina 1");
+        .setTitle("Quiz Patente");
 
-      getPage(type, 0).forEach((q, i) => {
-        modal.addComponents(
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder()
-              .setCustomId(`q${i}`)
-              .setLabel(q)
-              .setStyle(TextInputStyle.Short)
-          )
-        );
-      });
+      // BLOCCO 1
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId("q1")
+            .setLabel("Casco obbligatorio?")
+            .setStyle(TextInputStyle.Short)
+        ),
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId("q2")
+            .setLabel("Semaforo rosso = stop?")
+            .setStyle(TextInputStyle.Short)
+        ),
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId("q3")
+            .setLabel("Limite città 50?")
+            .setStyle(TextInputStyle.Short)
+        ),
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId("q4")
+            .setLabel("Sorpasso a destra?")
+            .setStyle(TextInputStyle.Short)
+        ),
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId("q5")
+            .setLabel("Cintura obbligatoria?")
+            .setStyle(TextInputStyle.Short)
+        )
+      );
 
       return interaction.showModal(modal);
     }
@@ -176,42 +184,21 @@ client.on("interactionCreate", async (interaction) => {
 
       const data = userData.get(interaction.user.id);
 
-      const answers = getPage(data.type, data.page)
-        .map((_, i) => interaction.fields.getTextInputValue(`q${i}`));
+      data.answers = [
+        interaction.fields.getTextInputValue("q1"),
+        interaction.fields.getTextInputValue("q2"),
+        interaction.fields.getTextInputValue("q3"),
+        interaction.fields.getTextInputValue("q4"),
+        interaction.fields.getTextInputValue("q5")
+      ];
 
-      data.answers.push(...answers);
-      data.page++;
-
-      const next = getPage(data.type, data.page);
-
-      if (next.length === 0) {
-        data.finished = true;
-
-        return interaction.reply({
-          content: "📸 Ora invia lo screenshot pagamento nel canale.",
-          ephemeral: true
-        });
-      }
-
-      const modal = new ModalBuilder()
-        .setCustomId("quiz")
-        .setTitle(`Quiz Pagina ${data.page + 1}`);
-
-      next.forEach((q, i) => {
-        modal.addComponents(
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder()
-              .setCustomId(`q${i}`)
-              .setLabel(q)
-              .setStyle(TextInputStyle.Short)
-          )
-        );
+      return interaction.reply({
+        content: "📸 Ora invia lo screenshot pagamento (allega immagine)",
+        ephemeral: true
       });
-
-      return interaction.showModal(modal);
     }
 
-    // STAFF BUTTON
+    // STAFF BOTTONI
     if (interaction.isButton()) {
 
       if (interaction.customId.startsWith("accetta_") ||
@@ -219,7 +206,7 @@ client.on("interactionCreate", async (interaction) => {
 
         const modal = new ModalBuilder()
           .setCustomId(`motivo_${interaction.customId}`)
-          .setTitle("Motivo obbligatorio");
+          .setTitle("Motivo");
 
         modal.addComponents(
           new ActionRowBuilder().addComponents(
@@ -238,54 +225,45 @@ client.on("interactionCreate", async (interaction) => {
     if (interaction.isModalSubmit() && interaction.customId.startsWith("motivo_")) {
 
       const action = interaction.customId.replace("motivo_", "");
-      const userId = action.split("_")[1];
+      const id = action.split("_")[1];
       const reason = interaction.fields.getTextInputValue("reason");
 
-      const guild = interaction.guild;
-      const member = await guild.members.fetch(userId);
-      const data = userData.get(userId);
+      const member = await interaction.guild.members.fetch(id);
+      const data = userData.get(id);
 
       if (action.startsWith("accetta")) {
         await member.roles.add(RUOLI[data.type]);
-
         await member.send(`✅ Patente APPROVATA\nMotivo: ${reason}`);
       } else {
         await member.send(`❌ Patente RIFIUTATA\nMotivo: ${reason}`);
       }
 
-      return interaction.reply({ content: "✔️ Operazione completata" });
+      return interaction.reply({ content: "✔️ Fatto" });
     }
 
   } catch (err) {
-    console.log("ERRORE:", err);
+    console.log(err);
   }
 });
 
 // =========================
-// FOTO + INVIO STAFF
+// FOTO
 // =========================
 client.on("messageCreate", async (msg) => {
 
   if (msg.author.bot) return;
 
   const data = userData.get(msg.author.id);
-  const attachment = msg.attachments.first();
+  const img = msg.attachments.first();
 
-  if (!data || !data.finished || !attachment) return;
+  if (!data || !img) return;
 
   const staff = await client.channels.fetch(CANALE_STAFF);
 
   const embed = new EmbedBuilder()
-    .setColor("Blue")
-    .setTitle("📄 NUOVA PATENTE")
-    .setDescription(`
-👤 <@${msg.author.id}>
-Tipo: ${data.type}
-
-Risposte:
-${data.answers.join("\n")}
-`)
-    .setImage(attachment.url);
+    .setTitle("NUOVA PATENTE")
+    .setDescription(`👤 <@${msg.author.id}>`)
+    .setImage(img.url);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -300,7 +278,7 @@ ${data.answers.join("\n")}
 
   await staff.send({ embeds: [embed], components: [row] });
 
-  await msg.reply("✅ Pagamento inviato allo staff");
+  await msg.reply("✅ Inviato allo staff");
 
   userData.delete(msg.author.id);
 });
