@@ -34,9 +34,8 @@ const userData = new Map();
 
 // ================= KEEP ALIVE =================
 const http = require("http");
-http.createServer((req, res) => {
-  res.end("Bot attivo");
-}).listen(process.env.PORT || 3000);
+http.createServer((req, res) => res.end("Bot attivo"))
+  .listen(process.env.PORT || 3000);
 
 // ================= INFO =================
 const INFO = `
@@ -59,7 +58,7 @@ const INFO = `
 ⚠️ Rifiuto automatico se non rispetti
 `;
 
-// ================= QUIZ (TUO) =================
+// ================= QUIZ (TUO IDENTICO) =================
 const QUIZ = {
   A: [
     "Il casco è obbligatorio quando guidi la moto?",
@@ -116,6 +115,13 @@ const QUIZ = {
   ]
 };
 
+// ================= STEP FUNCTION =================
+function getStep(type, step) {
+  const list = QUIZ[type] || [];
+  const start = step * 5;
+  return list.slice(start, start + 5);
+}
+
 // ================= READY =================
 client.once("ready", async () => {
   console.log("BOT PRONTO");
@@ -160,17 +166,19 @@ client.on("interactionCreate", async (interaction) => {
       });
     }
 
-    // ================= QUIZ =================
+    // ================= START QUIZ =================
     if (interaction.isStringSelectMenu() && interaction.customId === "select") {
 
       const type = interaction.values[0];
 
       userData.set(interaction.user.id, {
         type,
+        step: 0,
+        answers: [],
         waitingUpload: false
       });
 
-      const questions = QUIZ[type];
+      const questions = getStep(type, 0);
 
       const modal = new ModalBuilder()
         .setCustomId("quiz")
@@ -180,7 +188,7 @@ client.on("interactionCreate", async (interaction) => {
         modal.addComponents(
           new ActionRowBuilder().addComponents(
             new TextInputBuilder()
-              .setCustomId(`q${i + 1}`)
+              .setCustomId(`q${i}`)
               .setLabel(q.slice(0, 45))
               .setStyle(TextInputStyle.Short)
           )
@@ -190,38 +198,69 @@ client.on("interactionCreate", async (interaction) => {
       return interaction.showModal(modal);
     }
 
-    // ================= QUIZ DONE =================
+    // ================= QUIZ STEP =================
     if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
-      userData.set(interaction.user.id, {
-        ...userData.get(interaction.user.id),
-        waitingUpload: true
+      const data = userData.get(interaction.user.id);
+
+      const answers = [];
+      for (let i = 0; i < 5; i++) {
+        answers.push(interaction.fields.getTextInputValue(`q${i}`));
+      }
+
+      data.answers.push(...answers);
+      data.step++;
+
+      const next = getStep(data.type, data.step);
+
+      // FINITO QUIZ
+      if (next.length === 0) {
+
+        data.waitingUpload = true;
+
+        return interaction.reply({
+          content: "✔️ Quiz completato!\nOra invia la foto del pagamento (clicca + e carica immagine).",
+          components: [
+            new ActionRowBuilder().addComponents(
+              new ButtonBuilder()
+                .setCustomId("pay")
+                .setLabel("💳 INVIA PAGAMENTO")
+                .setStyle(ButtonStyle.Success)
+            )
+          ],
+          ephemeral: true
+        });
+      }
+
+      // CONTINUA QUIZ
+      const modal = new ModalBuilder()
+        .setCustomId("quiz")
+        .setTitle("Continua Quiz");
+
+      next.forEach((q, i) => {
+        modal.addComponents(
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder()
+              .setCustomId(`q${i}`)
+              .setLabel(q.slice(0, 45))
+              .setStyle(TextInputStyle.Short)
+          )
+        );
       });
 
-      return interaction.reply({
-        content: "✔️ Quiz completato!\nOra invia la foto del pagamento con il + (galleria Discord).",
-        components: [
-          new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-              .setCustomId("pay")
-              .setLabel("💳 INVIA PAGAMENTO")
-              .setStyle(ButtonStyle.Success)
-          )
-        ],
-        ephemeral: true
-      });
+      return interaction.showModal(modal);
     }
 
-    // ================= PAY =================
+    // ================= PAY BUTTON =================
     if (interaction.isButton() && interaction.customId === "pay") {
 
-      userData.set(interaction.user.id, {
-        ...userData.get(interaction.user.id),
-        waitingUpload: true
-      });
+      const data = userData.get(interaction.user.id);
+      if (!data) return;
+
+      data.waitingUpload = true;
 
       return interaction.reply({
-        content: "📸 Invia ORA la foto (clicca + e carica immagine).",
+        content: "📸 Ora invia la foto del pagamento con il + (galleria Discord).",
         ephemeral: true
       });
     }
@@ -231,21 +270,16 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
-// ================= MESSAGE HANDLER (CANCELLA TUTTO) =================
+// ================= UPLOAD + CANCELLA MESSAGGI =================
 client.on("messageCreate", async (msg) => {
 
   if (msg.author.bot) return;
 
   const data = userData.get(msg.author.id);
-
-  // ❌ CANCELLA TUTTI I MESSAGGI UTENTE
-  if (data) {
-    try {
-      await msg.delete();
-    } catch {}
-  }
-
   if (!data || !data.waitingUpload) return;
+
+  // ❌ cancella ogni messaggio utente
+  try { await msg.delete(); } catch {}
 
   const img = msg.attachments.first();
   if (!img) return;
