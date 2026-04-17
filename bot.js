@@ -34,8 +34,9 @@ const userData = new Map();
 
 // ================= KEEP ALIVE =================
 const http = require("http");
-http.createServer((req, res) => res.end("Bot attivo"))
-  .listen(process.env.PORT || 3000);
+http.createServer((req, res) => {
+  res.end("Bot attivo");
+}).listen(process.env.PORT || 3000);
 
 // ================= INFO =================
 const INFO = `
@@ -118,11 +119,10 @@ const QUIZ = {
 // ================= STEP FUNCTION =================
 function getStep(type, step) {
   const list = QUIZ[type] || [];
-  const start = step * 5;
-  return list.slice(start, start + 5);
+  return list.slice(step * 5, step * 5 + 5);
 }
 
-// ================= READY =================
+// ================= START MESSAGE =================
 client.once("ready", async () => {
   console.log("BOT PRONTO");
 
@@ -146,6 +146,7 @@ client.once("ready", async () => {
 client.on("interactionCreate", async (interaction) => {
   try {
 
+    // BUTTON START
     if (interaction.isButton() && interaction.customId === "start") {
 
       const menu = new ActionRowBuilder().addComponents(
@@ -178,30 +179,16 @@ client.on("interactionCreate", async (interaction) => {
         waitingUpload: false
       });
 
-      const questions = getStep(type, 0);
-
-      const modal = new ModalBuilder()
-        .setCustomId("quiz")
-        .setTitle("Quiz Patente");
-
-      questions.forEach((q, i) => {
-        modal.addComponents(
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder()
-              .setCustomId(`q${i}`)
-              .setLabel(q.slice(0, 45))
-              .setStyle(TextInputStyle.Short)
-          )
-        );
-      });
-
-      return interaction.showModal(modal);
+      return sendQuiz(interaction, type, 0);
     }
 
-    // ================= QUIZ STEP =================
-    if (interaction.isModalSubmit() && interaction.customId === "quiz") {
+    // ================= QUIZ SUBMIT =================
+    if (interaction.isModalSubmit() && interaction.customId.startsWith("quiz_")) {
+
+      const step = parseInt(interaction.customId.split("_")[1]);
 
       const data = userData.get(interaction.user.id);
+      if (!data) return;
 
       const answers = [];
       for (let i = 0; i < 5; i++) {
@@ -209,17 +196,18 @@ client.on("interactionCreate", async (interaction) => {
       }
 
       data.answers.push(...answers);
-      data.step++;
 
-      const next = getStep(data.type, data.step);
+      const nextStep = step + 1;
+      const nextQuestions = getStep(data.type, nextStep);
 
-      // FINITO QUIZ
-      if (next.length === 0) {
+      data.step = nextStep;
+
+      if (nextQuestions.length === 0) {
 
         data.waitingUpload = true;
 
         return interaction.reply({
-          content: "✔️ Quiz completato!\nOra invia la foto del pagamento (clicca + e carica immagine).",
+          content: "✔️ Quiz completato!\nOra invia la foto del pagamento (clicca +).",
           components: [
             new ActionRowBuilder().addComponents(
               new ButtonBuilder()
@@ -232,23 +220,7 @@ client.on("interactionCreate", async (interaction) => {
         });
       }
 
-      // CONTINUA QUIZ
-      const modal = new ModalBuilder()
-        .setCustomId("quiz")
-        .setTitle("Continua Quiz");
-
-      next.forEach((q, i) => {
-        modal.addComponents(
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder()
-              .setCustomId(`q${i}`)
-              .setLabel(q.slice(0, 45))
-              .setStyle(TextInputStyle.Short)
-          )
-        );
-      });
-
-      return interaction.showModal(modal);
+      return sendQuiz(interaction, data.type, nextStep);
     }
 
     // ================= PAY BUTTON =================
@@ -260,7 +232,7 @@ client.on("interactionCreate", async (interaction) => {
       data.waitingUpload = true;
 
       return interaction.reply({
-        content: "📸 Ora invia la foto del pagamento con il + (galleria Discord).",
+        content: "📸 Ora invia la foto con il + (galleria Discord).",
         ephemeral: true
       });
     }
@@ -270,7 +242,30 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
-// ================= UPLOAD + CANCELLA MESSAGGI =================
+// ================= SEND QUIZ FUNCTION =================
+function sendQuiz(interaction, type, step) {
+
+  const questions = getStep(type, step);
+
+  const modal = new ModalBuilder()
+    .setCustomId(`quiz_${step}`)
+    .setTitle(step === 0 ? "Quiz Patente" : "Continua Quiz");
+
+  questions.forEach((q, i) => {
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId(`q${i}`)
+          .setLabel(q.slice(0, 45))
+          .setStyle(TextInputStyle.Short)
+      )
+    );
+  });
+
+  return interaction.showModal(modal);
+}
+
+// ================= IMAGE UPLOAD =================
 client.on("messageCreate", async (msg) => {
 
   if (msg.author.bot) return;
@@ -278,7 +273,6 @@ client.on("messageCreate", async (msg) => {
   const data = userData.get(msg.author.id);
   if (!data || !data.waitingUpload) return;
 
-  // ❌ cancella ogni messaggio utente
   try { await msg.delete(); } catch {}
 
   const img = msg.attachments.first();
