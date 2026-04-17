@@ -33,18 +33,59 @@ const RUOLI = {
 
 // ================= MEMORY =================
 const userData = new Map();
-const pendingRequests = new Map();
+const pending = new Map();
 
 require("http").createServer((req, res) => res.end("OK")).listen(process.env.PORT || 3000);
 
-// ================= DOMANDE =================
-const QUESTIONS = [
-  "Casco obbligatorio?",
-  "Fari anche di giorno?",
-  "Limite urbano 50?",
-  "Cintura obbligatoria?",
-  "Semaforo rosso = stop?"
-];
+// ================= DOMANDE REALI =================
+const QUESTIONS = {
+  A: [
+    "Il casco è obbligatorio quando guidi la moto?",
+    "I fari devono essere accesi anche di giorno?",
+    "In curva bisogna rallentare prima di entrarci?",
+    "Posso guidare senza guanti?",
+    "Su strada bagnata la frenata è più lunga?",
+    "Il freno anteriore è più potente?",
+    "È vietato superare a destra?",
+    "Pneumatici lisci sono sicuri?",
+    "La freccia è obbligatoria?",
+    "Il casco deve essere allacciato?",
+    "Posso guidare contromano?",
+    "Il limite urbano è 50 km/h?",
+    "Si può guidare senza patente?",
+    "Con pioggia aumenta distanza?",
+    "Il clacson è solo per emergenza?"
+  ],
+  B: [
+    "Il casco è obbligatorio in auto?",
+    "In città il limite è 50 km/h?",
+    "La cintura va sempre allacciata?",
+    "Posso sorpassare con linea continua?",
+    "La distanza di sicurezza serve?",
+    "Il semaforo rosso significa stop?",
+    "Posso usare telefono senza vivavoce?",
+    "I fari vanno accesi di notte?",
+    "La frenata sul bagnato è più lunga?",
+    "I bambini devono usare seggiolini?",
+    "La precedenza a destra vale sempre?",
+    "Il parcheggio vietato è segnalato?",
+    "Il sorpasso a sinistra è obbligatorio?",
+    "Bisogna rispettare i limiti?",
+    "Autostrada limite 130 km/h?"
+  ],
+  CD: [
+    "Limite camion in città?",
+    "Cosa fai al semaforo rosso?",
+    "Chi ha precedenza agli incroci?",
+    "Quando accendi anabbaglianti?",
+    "Come comportarsi con ambulanza?",
+    "Veicolo per più persone?",
+    "Cos’è distanza sicurezza?",
+    "Cos’è freno motore?",
+    "Dove parcheggiano camion?",
+    "Significato segnale camion?"
+  ]
+};
 
 // ================= START =================
 client.once("ready", async () => {
@@ -83,11 +124,7 @@ client.on("interactionCreate", async (interaction) => {
         ])
     );
 
-    return interaction.reply({
-      content: "Seleziona patente:",
-      components: [menu],
-      ephemeral: true
-    });
+    return interaction.reply({ content: "Seleziona patente:", components: [menu], ephemeral: true });
   }
 
   // QUIZ
@@ -97,14 +134,15 @@ client.on("interactionCreate", async (interaction) => {
 
     userData.set(interaction.user.id, {
       type,
-      answers: []
+      answers: [],
+      step: 0
     });
 
     const modal = new ModalBuilder()
       .setCustomId("quiz")
       .setTitle("Quiz Patente");
 
-    QUESTIONS.forEach((q, i) => {
+    QUESTIONS[type].slice(0, 5).forEach((q, i) => {
       modal.addComponents(
         new ActionRowBuilder().addComponents(
           new TextInputBuilder()
@@ -125,9 +163,11 @@ client.on("interactionCreate", async (interaction) => {
     const data = userData.get(interaction.user.id);
     if (!data) return;
 
-    for (let i = 0; i < QUESTIONS.length; i++) {
-      data.answers.push(interaction.fields.getTextInputValue(`q${i}`));
-    }
+    const qs = QUESTIONS[data.type].slice(0, 5);
+
+    data.answers = qs.map((_, i) =>
+      interaction.fields.getTextInputValue(`q${i}`)
+    );
 
     data.waitingPhoto = true;
 
@@ -137,117 +177,27 @@ client.on("interactionCreate", async (interaction) => {
     });
   }
 
-  // ================= STAFF BUTTON =================
-  if (interaction.isButton()) {
-
-    if (!interaction.customId.startsWith("accetta_") &&
-        !interaction.customId.startsWith("rifiuta_")) return;
-
-    const id = interaction.customId.split("_")[1];
-
-    const modal = new ModalBuilder()
-      .setCustomId(`motivo_${interaction.customId}`)
-      .setTitle("Motivo obbligatorio");
-
-    const input = new TextInputBuilder()
-      .setCustomId("reason")
-      .setLabel("Scrivi il motivo")
-      .setStyle(TextInputStyle.Paragraph)
-      .setRequired(true);
-
-    modal.addComponents(
-      new ActionRowBuilder().addComponents(input)
-    );
-
-    return interaction.showModal(modal);
-  }
-
-  // ================= MOTIVO + STAFF RESULT =================
-  if (interaction.isModalSubmit() && interaction.customId.startsWith("motivo_")) {
-
-    const actionFull = interaction.customId.replace("motivo_", "");
-    const [action, id] = actionFull.split("_");
-
-    const req = pendingRequests.get(id);
-    if (!req) return interaction.reply({ content: "❌ Richiesta non trovata", ephemeral: true });
-
-    const reason = interaction.fields.getTextInputValue("reason");
-
-    const member = await interaction.guild.members.fetch(id).catch(() => null);
-
-    const decision = action === "accetta" ? "APPROVATA" : "RIFIUTATA";
-
-    // ================= FORMAT CORRETTO PER CORREZIONE STAFF =================
-    const qa = req.answers
-      .map((a, i) =>
-        `**${i + 1}. ${QUESTIONS[i]}**
-➡️ Risposta: **${a}**`
-      )
-      .join("\n\n");
-
-    // ================= FOTO FIX (BUFFER SAFE) =================
-    const file = req.photo
-      ? [{ attachment: req.photo, name: "pagamento.png" }]
-      : [];
-
-    const embed = new EmbedBuilder()
-      .setTitle(`📄 PATENTE ${decision}`)
-      .setColor(decision === "APPROVATA" ? "Green" : "Red")
-      .addFields(
-        { name: "👤 Utente", value: `<@${id}>`, inline: true },
-        { name: "🚗 Patente richiesta", value: req.type, inline: true },
-        { name: "📋 CORREZIONE QUIZ", value: qa },
-        { name: "📝 Motivazione staff", value: reason },
-        { name: "👮 Decisione di", value: `<@${interaction.user.id}>` }
-      )
-      .setFooter({ text: "Sistema Patenti Sud Italy RP" });
-
-    const staff = await client.channels.fetch(CANALE_STAFF);
-
-    await staff.send({
-      embeds: [embed],
-      files: file
-    });
-
-    if (member) {
-      if (decision === "APPROVATA") {
-        await member.roles.add(RUOLI[req.type]);
-        await member.send("✅ Patente approvata");
-      } else {
-        await member.send("❌ Patente rifiutata");
-      }
-    }
-
-    pendingRequests.delete(id);
-
-    return interaction.reply({ content: "✔ Fatto", ephemeral: true });
-  }
 });
 
-// ================= PHOTO HANDLER =================
+// ================= FOTO + DELETE MESSAGES =================
 client.on("messageCreate", async (msg) => {
 
   if (msg.author.bot) return;
+  if (msg.channel.id !== CANALE_PATENTI) return;
 
   const data = userData.get(msg.author.id);
   if (!data || !data.waitingPhoto) return;
 
-  if (msg.channel.id !== CANALE_PATENTI) return;
-
   const attachment = msg.attachments.first();
   if (!attachment) return;
 
-  // 🔥 download sicuro PRIMA di delete
-  const fetch = await import("node-fetch");
-  const res = await fetch.default(attachment.url);
-  const buffer = Buffer.from(await res.arrayBuffer());
-
+  // ❌ cancella messaggio utente
   try { await msg.delete(); } catch {}
 
-  pendingRequests.set(msg.author.id, {
+  pending.set(msg.author.id, {
     type: data.type,
     answers: data.answers,
-    photo: buffer
+    photo: attachment.url
   });
 
   userData.delete(msg.author.id);
@@ -259,7 +209,6 @@ client.on("messageCreate", async (msg) => {
     .setDescription(`<@${msg.author.id}>`)
     .addFields(
       { name: "🚗 Patente", value: data.type },
-      { name: "🧠 Risposte", value: data.answers.join("\n") },
       { name: "📸 Stato", value: "Foto ricevuta ✔" }
     )
     .setImage(attachment.url);
@@ -276,6 +225,87 @@ client.on("messageCreate", async (msg) => {
   );
 
   await staff.send({ embeds: [embed], components: [row] });
+});
+
+// ================= STAFF DECISION =================
+client.on("interactionCreate", async (interaction) => {
+
+  if (!interaction.isButton()) return;
+  if (!interaction.customId.startsWith("accetta_") &&
+      !interaction.customId.startsWith("rifiuta_")) return;
+
+  const id = interaction.customId.split("_")[1];
+  const req = pending.get(id);
+
+  if (!req) return interaction.reply({ content: "❌ Dati non trovati", ephemeral: true });
+
+  const modal = new ModalBuilder()
+    .setCustomId(`motivo_${interaction.customId}`)
+    .setTitle("Motivo obbligatorio");
+
+  const input = new TextInputBuilder()
+    .setCustomId("reason")
+    .setLabel("Scrivi il motivo")
+    .setStyle(TextInputStyle.Paragraph)
+    .setRequired(true);
+
+  modal.addComponents(new ActionRowBuilder().addComponents(input));
+
+  return interaction.showModal(modal);
+});
+
+// ================= MOTIVO + RISULTATO =================
+client.on("interactionCreate", async (interaction) => {
+
+  if (!interaction.isModalSubmit()) return;
+  if (!interaction.customId.startsWith("motivo_")) return;
+
+  const actionFull = interaction.customId.replace("motivo_", "");
+  const [action, id] = actionFull.split("_");
+
+  const req = pending.get(id);
+  if (!req) return;
+
+  const reason = interaction.fields.getTextInputValue("reason");
+
+  const member = await interaction.guild.members.fetch(id).catch(() => null);
+
+  const qs = QUESTIONS[req.type].slice(0, 5);
+
+  const qa = req.answers
+    .map((a, i) => `**${qs[i]}** → ${a}`)
+    .join("\n");
+
+  const decision = action === "accetta" ? "APPROVATA" : "RIFIUTATA";
+
+  const embed = new EmbedBuilder()
+    .setTitle(`📄 PATENTE ${decision}`)
+    .setColor(decision === "APPROVATA" ? "Green" : "Red")
+    .addFields(
+      { name: "👤 Utente", value: `<@${id}>` },
+      { name: "🚗 Patente", value: req.type },
+      { name: "📋 QUIZ", value: qa },
+      { name: "📝 Motivo", value: reason },
+      { name: "👮 Staff", value: `<@${interaction.user.id}>` }
+    )
+    .setImage(req.photo);
+
+  const staff = await client.channels.fetch(CANALE_STAFF);
+
+  await staff.send({ embeds: [embed] });
+
+  if (member) {
+    if (decision === "APPROVATA") {
+      await member.roles.add(RUOLI[req.type]);
+      await member.send("✅ Patente approvata");
+    } else {
+      await member.send("❌ Patente rifiutata");
+    }
+  }
+
+  pending.delete(id);
+
+  return interaction.reply({ content: "✔ Fatto", ephemeral: true });
 });
 
 // ================= LOGIN =================
