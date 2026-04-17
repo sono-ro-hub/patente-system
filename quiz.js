@@ -54,11 +54,4 @@ const QUIZ = {
   ]
 };
 
-// FUNZIONE PER PRENDERE 5 DOMANDE
-function getQuizStep(type, step) {
-  const questions = QUIZ[type] || [];
-  const start = step * 5;
-  return questions.slice(start, start + 5);
-}
-
-module.exports = { QUIZ, getQuizStep };
+module.exports = { QUIZ };
