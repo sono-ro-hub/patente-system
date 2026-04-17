@@ -39,26 +39,16 @@ require("http").createServer((req, res) => {
 
 // ================= INFO =================
 const INFO = `
-🏛️ Dipartimento Trasporti — Sud Italy RP
-
 📄 INFORMAZIONI PATENTE
 
-1) Inviare il quiz nel modulo patente  
-2) Pagamento 3k all'id Lessimanuardi123  
-3) Inviare prova pagamento su PAGAMENTI PATENTE  
+1) Quiz patente nel modulo  
+2) Pagamento 3k all’id Lessimanuardi123  
+3) Upload foto su PAGAMENTI PATENTE  
 
 ━━━━━━━━━━━━━━━━━━
-Patenti:
 A = Moto
 B = Auto
 C-D = Camion/Bus
-
-━━━━━━━━━━━━━━━━━━
-Requisiti:
-• cittadino registrato
-• comportamento civile
-• no sospensioni
-• conoscenza RP
 `;
 
 // ================= QUIZ =================
@@ -123,7 +113,7 @@ function getStep(type, step) {
   return QUIZ[type].slice(step * 5, step * 5 + 5);
 }
 
-// ================= READY =================
+// ================= START =================
 client.once("ready", async () => {
   console.log("BOT PRONTO");
 
@@ -143,9 +133,8 @@ client.once("ready", async () => {
   await ch.send({ embeds: [embed], components: [row] });
 });
 
-// ================= START =================
+// ================= INTERACTION =================
 client.on("interactionCreate", async (interaction) => {
-
   try {
 
     // START BUTTON
@@ -177,8 +166,7 @@ client.on("interactionCreate", async (interaction) => {
       userData.set(interaction.user.id, {
         type,
         step: 0,
-        answers: [],
-        questions: getStep(type, 0)
+        answers: []
       });
 
       return openQuiz(interaction, type, 0);
@@ -190,9 +178,11 @@ client.on("interactionCreate", async (interaction) => {
       const data = userData.get(interaction.user.id);
       if (!data) return;
 
-      const answers = data.questions.map(q =>
-        interaction.fields.getTextInputValue(q)
-      );
+      const answers = [];
+
+      for (let i = 0; i < 5; i++) {
+        answers.push(interaction.fields.getTextInputValue(`q${i}`));
+      }
 
       data.answers.push(...answers);
       data.step++;
@@ -204,7 +194,7 @@ client.on("interactionCreate", async (interaction) => {
         data.waitingUpload = true;
 
         return interaction.reply({
-          content: "✔️ Quiz completato! Ora invia la foto pagamento con +",
+          content: "✔️ Quiz completato! Invia la foto pagamento con +",
           ephemeral: true,
           components: [
             new ActionRowBuilder().addComponents(
@@ -250,7 +240,7 @@ function openQuiz(interaction, type, step) {
     modal.addComponents(
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
-          .setCustomId(q)
+          .setCustomId(`q${i}`)
           .setLabel(q.slice(0, 45))
           .setStyle(TextInputStyle.Short)
       )
@@ -260,7 +250,7 @@ function openQuiz(interaction, type, step) {
   return interaction.showModal(modal);
 }
 
-// ================= UPLOAD IMAGE =================
+// ================= IMAGE UPLOAD =================
 client.on("messageCreate", async (msg) => {
 
   if (msg.author.bot) return;
