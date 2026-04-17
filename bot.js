@@ -20,10 +20,10 @@ const client = new Client({
   ]
 });
 
-// ================= CONFIG (DAL TUO SCRIPT) =================
+// ================= CONFIG =================
 const CANALE_RICHIESTE = "1493595963942768860";
 const CANALE_STAFF = "1493597555760824503";
-const CANALE_PATENTI = "1493595963942768860"; // (se è lo stesso canale, ok)
+const CANALE_PATENTI = "1493595963942768860";
 
 const RUOLI = {
   A: "1493609058438090773",
@@ -31,12 +31,13 @@ const RUOLI = {
   CD: "1493609213086142645"
 };
 
+// ================= MEMORY =================
 const userData = new Map();
 
 // ================= KEEP ALIVE =================
-require("http").createServer((req, res) => res.end("OK")).listen(3000);
+require("http").createServer((req, res) => res.end("OK")).listen(process.env.PORT || 3000);
 
-// ================= INFO (COME HAI CHIESTO) =================
+// ================= INFO =================
 const INFO = `
 •  🏛️ Dipartimento Trasporti — __Sud Italy RP__
 
@@ -49,75 +50,75 @@ Consente la guida di __motocicli__ e veicoli a due ruote.
 __🅱️ Patente B__
 Permette di guidare __autovetture__ e veicoli leggeri. 
 __🅲 Patente C-D__
-Permette di far guidare __camion__, __pullman__ o __autobus__, utili per il trasporto delle merci e delle persone.
+Permette di far guidare __camion__, __pullman__ o __autobus__.
 
 ━━━━━━━━━━━━━━━━━━
 __📝Condizioni richieste__
 
-• Essere un __cittadino__ registrato e approvato all’interno del server  
-• Avere un __comportamento civile__ e rispettoso delle regole RP  
-• Non essere __soggetto__ a __sospensioni__ o provvedimenti attivi  
-• Dimostrare una __conoscenza adeguata__ delle norme di circolazione    
+• Essere un __cittadino__ registrato
+• Comportamento civile
+• Nessuna sospensione attiva
+• Conoscenza regole circolazione
 
 ━━━━━━━━━━━━━━━━━━
-⚠️ Il mancato rispetto dei requisiti comporterà il rifiuto automatico della richiesta.
+⚠️ Rifiuto automatico se non conforme.
 `;
 
-// ================= QUIZ (DAL TUO SCRIPT) =================
+// ================= QUIZ =================
 const QUIZ = {
   A: [
-    "Il casco è obbligatorio quando guidi la moto?",
-    "I fari devono essere accesi anche di giorno?",
-    "In curva bisogna rallentare prima di entrarci?",
-    "Posso guidare senza guanti?",
-    "Su strada bagnata la frenata è più lunga?",
-    "Il freno anteriore è più potente?",
-    "È vietato superare a destra?",
-    "Pneumatici lisci sono sicuri?",
-    "La freccia è obbligatoria?",
-    "Il casco deve essere allacciato?",
-    "Posso guidare contromano?",
-    "Il limite urbano è 50 km/h?",
-    "Si può guidare senza patente?",
-    "Con pioggia aumenta distanza?",
-    "Il clacson è solo per emergenza?"
+    "Casco obbligatorio?",
+    "Fari anche di giorno?",
+    "Rallentare in curva?",
+    "Guanti obbligatori?",
+    "Frenata su bagnato più lunga?",
+    "Freno anteriore più forte?",
+    "Sorpasso a destra vietato?",
+    "Pneumatici lisci sicuri?",
+    "Freccia obbligatoria?",
+    "Casco allacciato?",
+    "Contromano permesso?",
+    "Limite urbano 50?",
+    "Senza patente si guida?",
+    "Pioggia aumenta distanza?",
+    "Clacson solo emergenza?"
   ],
 
   B: [
-    "Il casco è obbligatorio in auto?",
-    "In città il limite è 50 km/h?",
-    "La cintura va sempre allacciata?",
-    "Posso sorpassare con linea continua?",
-    "La distanza di sicurezza serve?",
-    "Il semaforo rosso significa stop?",
-    "Posso usare telefono senza vivavoce?",
-    "I fari vanno accesi di notte?",
-    "La frenata sul bagnato è più lunga?",
-    "I bambini devono usare seggiolini?",
-    "La precedenza a destra vale sempre?",
-    "Il parcheggio vietato è segnalato?",
-    "Il sorpasso a sinistra è obbligatorio?",
-    "Bisogna rispettare i limiti?",
-    "Autostrada limite 130 km/h?"
+    "Casco in auto?",
+    "Limite urbano 50?",
+    "Cintura obbligatoria?",
+    "Linea continua sorpasso?",
+    "Distanza sicurezza serve?",
+    "Rosso = stop?",
+    "Telefono senza vivavoce?",
+    "Fari di notte?",
+    "Frenata bagnato più lunga?",
+    "Seggiolino bambini?",
+    "Precedenza a destra?",
+    "Parcheggio vietato segnalato?",
+    "Sorpasso obbligatorio a sinistra?",
+    "Rispetto limiti?",
+    "Autostrada 130?"
   ],
 
   CD: [
-    "Limite camion in città?",
-    "Cosa fai al semaforo rosso?",
-    "Chi ha precedenza agli incroci?",
-    "Quando accendi anabbaglianti?",
-    "Come comportarsi con ambulanza?",
-    "Veicolo per più persone?",
-    "Cos’è distanza sicurezza?",
-    "Cos’è freno motore?",
+    "Limite camion città?",
+    "Semaforo rosso?",
+    "Precedenza incroci?",
+    "Anabbaglianti quando?",
+    "Ambulanza come comportarsi?",
+    "Veicolo persone?",
+    "Distanza sicurezza?",
+    "Freno motore?",
     "Dove parcheggiano camion?",
-    "Significato segnale camion?"
+    "Segnale camion?"
   ]
 };
 
 // ================= STEP =================
 function getStep(type, step) {
-  return QUIZ[type].slice(step * 5, step * 5 + 5);
+  return (QUIZ[type] || []).slice(step * 5, step * 5 + 5);
 }
 
 // ================= READY =================
@@ -140,11 +141,11 @@ client.once("ready", async () => {
   await ch.send({ embeds: [embed], components: [row] });
 });
 
-// ================= START QUIZ =================
+// ================= INTERACTIONS =================
 client.on("interactionCreate", async (interaction) => {
-
   try {
 
+    // START
     if (interaction.isButton() && interaction.customId === "start") {
 
       const menu = new ActionRowBuilder().addComponents(
@@ -165,31 +166,29 @@ client.on("interactionCreate", async (interaction) => {
       });
     }
 
+    // SELECT
     if (interaction.isStringSelectMenu()) {
 
-      const type = interaction.values[0];
-
       userData.set(interaction.user.id, {
-        type,
+        type: interaction.values[0],
         step: 0,
-        answers: []
+        answers: [],
+        waitingUpload: false
       });
 
-      return openQuiz(interaction, type, 0);
+      return openQuiz(interaction);
     }
 
+    // QUIZ SUBMIT
     if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
       const data = userData.get(interaction.user.id);
-      if (!data) return;
-
-      const answers = [];
+      if (!data) return interaction.reply({ content: "Sessione scaduta", ephemeral: true });
 
       for (let i = 0; i < 5; i++) {
-        answers.push(interaction.fields.getTextInputValue(`q${i}`));
+        data.answers.push(interaction.fields.getTextInputValue(`q${i}`));
       }
 
-      data.answers.push(...answers);
       data.step++;
 
       const next = getStep(data.type, data.step);
@@ -199,26 +198,24 @@ client.on("interactionCreate", async (interaction) => {
         data.waitingUpload = true;
 
         return interaction.reply({
-          content: "✔️ Quiz completato! Invia la foto pagamento con +",
+          content: "✔️ Quiz finito! Ora invia la foto pagamento nel canale patenti (usa +)",
           ephemeral: true
         });
       }
 
-      return openQuiz(interaction, data.type, data.step);
+      return openQuiz(interaction);
     }
 
   } catch (err) {
-    console.log(err);
+    console.log("ERROR:", err);
   }
 });
 
-// ================= MODAL =================
-function openQuiz(interaction, type, step) {
-
-  const questions = getStep(type, step);
+// ================= OPEN QUIZ =================
+function openQuiz(interaction) {
 
   const data = userData.get(interaction.user.id);
-  data.questions = questions;
+  const questions = getStep(data.type, data.step);
 
   const modal = new ModalBuilder()
     .setCustomId("quiz")
@@ -231,6 +228,7 @@ function openQuiz(interaction, type, step) {
           .setCustomId(`q${i}`)
           .setLabel(q.slice(0, 45))
           .setStyle(TextInputStyle.Short)
+          .setRequired(true)
       )
     );
   });
@@ -238,7 +236,7 @@ function openQuiz(interaction, type, step) {
   return interaction.showModal(modal);
 }
 
-// ================= UPLOAD FOTO =================
+// ================= FOTO =================
 client.on("messageCreate", async (msg) => {
 
   if (msg.author.bot) return;
@@ -282,37 +280,27 @@ client.on("messageCreate", async (msg) => {
   userData.delete(msg.author.id);
 });
 
-// ================= STAFF ACTION =================
+// ================= STAFF =================
 client.on("interactionCreate", async (interaction) => {
 
   if (!interaction.isButton()) return;
-
   if (!interaction.customId.startsWith("accetta_") &&
       !interaction.customId.startsWith("rifiuta_")) return;
 
-  const userId = interaction.customId.split("_")[1];
-  const data = userData.get(userId);
+  const id = interaction.customId.split("_")[1];
+  const member = await interaction.guild.members.fetch(id).catch(() => null);
 
-  if (!data) return interaction.reply({ content: "Dati non trovati", ephemeral: true });
+  const status = interaction.customId.startsWith("accetta_")
+    ? "APPROVATA"
+    : "RIFIUTATA";
 
-  const member = await interaction.guild.members.fetch(userId).catch(() => null);
-
-  const status = interaction.customId.startsWith("accetta_") ? "APPROVATA" : "RIFIUTATA";
-
-  const embed = new EmbedBuilder()
+  const log = new EmbedBuilder()
     .setTitle(`📄 PATENTE ${status}`)
-    .setColor(status === "APPROVATA" ? "Green" : "Red")
-    .addFields(
-      { name: "Patente", value: data.type },
-      { name: "Risposte", value: data.answers.join("\n").slice(0, 1024) }
-    );
-
-  if (data.paymentImage) embed.setImage(data.paymentImage);
-
-  const log = await client.channels.fetch(CANALE_STAFF);
-  await log.send({ embeds: [embed] });
+    .setColor(status === "APPROVATA" ? "Green" : "Red");
 
   if (member) {
+    const data = userData.get(id);
+
     if (status === "APPROVATA") {
       await member.roles.add(RUOLI[data.type]);
       await member.send("✅ Patente approvata");
@@ -320,8 +308,6 @@ client.on("interactionCreate", async (interaction) => {
       await member.send("❌ Patente rifiutata");
     }
   }
-
-  userData.delete(userId);
 
   return interaction.reply({ content: "✔️ Fatto", ephemeral: true });
 });
