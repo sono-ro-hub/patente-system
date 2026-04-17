@@ -1,25 +1,17 @@
-// =========================
-// QUIZ PATENTE SYSTEM
-// Sud Italy RP
-// =========================
-
-module.exports = {
+const QUIZ = {
   A: [
-    // STEP 1
     "Il casco è obbligatorio quando guidi la moto?",
     "I fari devono essere accesi anche di giorno?",
     "In curva bisogna rallentare prima di entrarci?",
     "Posso guidare senza guanti?",
     "Su strada bagnata la frenata è più lunga?",
 
-    // STEP 2
     "Il freno anteriore è più potente?",
     "È vietato superare a destra?",
     "Pneumatici lisci sono sicuri?",
     "La freccia è obbligatoria?",
     "Il casco deve essere allacciato?",
 
-    // STEP 3
     "Posso guidare contromano?",
     "Il limite urbano è 50 km/h?",
     "Si può guidare senza patente?",
@@ -28,21 +20,18 @@ module.exports = {
   ],
 
   B: [
-    // STEP 1
     "Il casco è obbligatorio in auto?",
     "In città il limite è 50 km/h?",
     "La cintura va sempre allacciata?",
     "Posso sorpassare con linea continua?",
     "La distanza di sicurezza serve?",
 
-    // STEP 2
     "Il semaforo rosso significa stop?",
     "Posso usare telefono senza vivavoce?",
     "I fari vanno accesi di notte?",
     "La frenata sul bagnato è più lunga?",
     "I bambini devono usare seggiolini?",
 
-    // STEP 3
     "La precedenza a destra vale sempre?",
     "Il parcheggio vietato è segnalato?",
     "Il sorpasso a sinistra è obbligatorio?",
@@ -51,14 +40,12 @@ module.exports = {
   ],
 
   CD: [
-    // STEP 1
     "Limite camion in città?",
     "Cosa fai al semaforo rosso?",
     "Chi ha precedenza agli incroci?",
     "Quando accendi anabbaglianti?",
     "Come comportarsi con ambulanza?",
 
-    // STEP 2
     "Veicolo per più persone?",
     "Cos’è distanza sicurezza?",
     "Cos’è freno motore?",
@@ -67,12 +54,11 @@ module.exports = {
   ]
 };
 
-// =========================
-// HELPER: STEP QUIZ (5 DOMANDE)
-// =========================
-
-module.exports.getQuizStep = function (type, step) {
-  const all = module.exports[type];
+// FUNZIONE PER PRENDERE 5 DOMANDE
+function getQuizStep(type, step) {
+  const questions = QUIZ[type] || [];
   const start = step * 5;
-  return all.slice(start, start + 5);
-};
+  return questions.slice(start, start + 5);
+}
+
+module.exports = { QUIZ, getQuizStep };
