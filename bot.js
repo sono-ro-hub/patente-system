@@ -22,7 +22,7 @@ const client = new Client({
   ]
 });
 
-// ========================= CONFIG
+// ================= CONFIG =================
 const CANALE_RICHIESTE = "1493595963942768860";
 const CANALE_STAFF = "1493597555760824503";
 
@@ -34,13 +34,14 @@ const RUOLI = {
 
 const userData = new Map();
 
-// ========================= KEEP ALIVE (RENDER)
+// ================= KEEP ALIVE =================
 const http = require("http");
 http.createServer((req, res) => {
+  res.writeHead(200);
   res.end("Bot attivo");
 }).listen(process.env.PORT || 3000);
 
-// ========================= READY
+// ================= READY =================
 client.once("ready", async () => {
   console.log("BOT PRONTO");
 
@@ -60,12 +61,7 @@ client.once("ready", async () => {
   await ch.send({ embeds: [embed], components: [row] });
 });
 
-// ========================= FUNZIONE STEP
-function getStepQuestions(type, step) {
-  return QUIZ[type].slice(step * 5, (step + 1) * 5);
-}
-
-// ========================= INTERACTION
+// ================= INTERACTION =================
 client.on("interactionCreate", async (interaction) => {
   try {
 
@@ -90,22 +86,18 @@ client.on("interactionCreate", async (interaction) => {
       });
     }
 
-    // SELECT
+    // SELECT → QUIZ (UNICO MODAL)
     if (interaction.isStringSelectMenu() && interaction.customId === "select") {
 
       const type = interaction.values[0];
 
-      userData.set(interaction.user.id, {
-        type,
-        step: 0,
-        answers: []
-      });
+      userData.set(interaction.user.id, { type });
 
-      const questions = getStepQuestions(type, 0);
+      const questions = QUIZ[type].slice(0, 5);
 
       const modal = new ModalBuilder()
         .setCustomId("quiz")
-        .setTitle("Quiz Patente - Step 1");
+        .setTitle("Quiz Patente");
 
       questions.forEach((q, i) => {
         modal.addComponents(
@@ -121,12 +113,12 @@ client.on("interactionCreate", async (interaction) => {
       return interaction.showModal(modal);
     }
 
-    // QUIZ
+    // QUIZ SUBMIT
     if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
       const data = userData.get(interaction.user.id);
 
-      const answers = [
+      data.answers = [
         interaction.fields.getTextInputValue("q1"),
         interaction.fields.getTextInputValue("q2"),
         interaction.fields.getTextInputValue("q3"),
@@ -134,36 +126,6 @@ client.on("interactionCreate", async (interaction) => {
         interaction.fields.getTextInputValue("q5")
       ];
 
-      data.answers.push(...answers);
-      data.step++;
-
-      // SE NON FINITO
-      if (data.step < 3) {
-
-        const questions = getStepQuestions(data.type, data.step);
-
-        const modal = new ModalBuilder()
-          .setCustomId("quiz")
-          .setTitle(`Quiz Patente - Step ${data.step + 1}`);
-
-        questions.forEach((q, i) => {
-          modal.addComponents(
-            new ActionRowBuilder().addComponents(
-              new TextInputBuilder()
-                .setCustomId(`q${i + 1}`)
-                .setLabel(q.slice(0, 45))
-                .setStyle(TextInputStyle.Short)
-            )
-          );
-        });
-
-        return interaction.reply({
-          content: "➡️ Continua il quiz...",
-          ephemeral: true
-        }).then(() => interaction.showModal(modal));
-      }
-
-      // FINE QUIZ
       return interaction.reply({
         content: "📸 Invia ora lo screenshot del pagamento.",
         ephemeral: true
@@ -178,7 +140,7 @@ client.on("interactionCreate", async (interaction) => {
 
       const modal = new ModalBuilder()
         .setCustomId(`motivo_${interaction.customId}`)
-        .setTitle("Motivo");
+        .setTitle("Motivo decisione");
 
       modal.addComponents(
         new ActionRowBuilder().addComponents(
@@ -192,7 +154,7 @@ client.on("interactionCreate", async (interaction) => {
       return interaction.showModal(modal);
     }
 
-    // MOTIVO
+    // MOTIVO + RUOLO
     if (interaction.isModalSubmit() && interaction.customId.startsWith("motivo_")) {
 
       const action = interaction.customId.replace("motivo_", "");
@@ -201,6 +163,8 @@ client.on("interactionCreate", async (interaction) => {
 
       const member = await interaction.guild.members.fetch(id);
       const data = userData.get(id);
+
+      if (!data) return interaction.reply({ content: "Errore dati", ephemeral: true });
 
       if (action.startsWith("accetta")) {
         await member.roles.add(RUOLI[data.type]);
@@ -217,5 +181,5 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
-// ========================= LOGIN
+// ================= LOGIN =================
 client.login(process.env.TOKEN);
