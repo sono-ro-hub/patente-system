@@ -33,8 +33,7 @@ const RUOLI = {
 const userData = new Map();
 
 // ================= KEEP ALIVE =================
-const http = require("http");
-http.createServer((req, res) => {
+require("http").createServer((req, res) => {
   res.end("Bot attivo");
 }).listen(process.env.PORT || 3000);
 
@@ -42,24 +41,27 @@ http.createServer((req, res) => {
 const INFO = `
 🏛️ Dipartimento Trasporti — Sud Italy RP
 
-━━━━━━━━━━━━━━━━━━
-📋 Tipi di patente
-🅰️ A Moto
-🅱️ B Auto
-🅲 C-D Camion/Bus
+📄 INFORMAZIONI PATENTE
+
+1) Inviare il quiz nel modulo patente  
+2) Pagamento 3k all'id Lessimanuardi123  
+3) Inviare prova pagamento su PAGAMENTI PATENTE  
 
 ━━━━━━━━━━━━━━━━━━
-📝 Regole
+Patenti:
+A = Moto
+B = Auto
+C-D = Camion/Bus
+
+━━━━━━━━━━━━━━━━━━
+Requisiti:
 • cittadino registrato
 • comportamento civile
 • no sospensioni
 • conoscenza RP
-
-━━━━━━━━━━━━━━━━━━
-⚠️ Rifiuto automatico se non rispetti
 `;
 
-// ================= QUIZ (TUO IDENTICO) =================
+// ================= QUIZ =================
 const QUIZ = {
   A: [
     "Il casco è obbligatorio quando guidi la moto?",
@@ -116,13 +118,12 @@ const QUIZ = {
   ]
 };
 
-// ================= STEP FUNCTION =================
+// ================= STEP =================
 function getStep(type, step) {
-  const list = QUIZ[type] || [];
-  return list.slice(step * 5, step * 5 + 5);
+  return QUIZ[type].slice(step * 5, step * 5 + 5);
 }
 
-// ================= START MESSAGE =================
+// ================= READY =================
 client.once("ready", async () => {
   console.log("BOT PRONTO");
 
@@ -144,9 +145,10 @@ client.once("ready", async () => {
 
 // ================= START =================
 client.on("interactionCreate", async (interaction) => {
+
   try {
 
-    // BUTTON START
+    // START BUTTON
     if (interaction.isButton() && interaction.customId === "start") {
 
       const menu = new ActionRowBuilder().addComponents(
@@ -167,7 +169,7 @@ client.on("interactionCreate", async (interaction) => {
       });
     }
 
-    // ================= START QUIZ =================
+    // START QUIZ
     if (interaction.isStringSelectMenu() && interaction.customId === "select") {
 
       const type = interaction.values[0];
@@ -176,63 +178,53 @@ client.on("interactionCreate", async (interaction) => {
         type,
         step: 0,
         answers: [],
-        waitingUpload: false
+        questions: getStep(type, 0)
       });
 
-      return sendQuiz(interaction, type, 0);
+      return openQuiz(interaction, type, 0);
     }
 
-    // ================= QUIZ SUBMIT =================
-    if (interaction.isModalSubmit() && interaction.customId.startsWith("quiz_")) {
-
-      const step = parseInt(interaction.customId.split("_")[1]);
+    // QUIZ SUBMIT
+    if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
       const data = userData.get(interaction.user.id);
       if (!data) return;
 
-      const answers = [];
-      for (let i = 0; i < 5; i++) {
-        answers.push(interaction.fields.getTextInputValue(`q${i}`));
-      }
+      const answers = data.questions.map(q =>
+        interaction.fields.getTextInputValue(q)
+      );
 
       data.answers.push(...answers);
+      data.step++;
 
-      const nextStep = step + 1;
-      const nextQuestions = getStep(data.type, nextStep);
+      const next = getStep(data.type, data.step);
 
-      data.step = nextStep;
-
-      if (nextQuestions.length === 0) {
+      if (next.length === 0) {
 
         data.waitingUpload = true;
 
         return interaction.reply({
-          content: "✔️ Quiz completato!\nOra invia la foto del pagamento (clicca +).",
+          content: "✔️ Quiz completato! Ora invia la foto pagamento con +",
+          ephemeral: true,
           components: [
             new ActionRowBuilder().addComponents(
               new ButtonBuilder()
                 .setCustomId("pay")
-                .setLabel("💳 INVIA PAGAMENTO")
+                .setLabel("INVIA PAGAMENTO")
                 .setStyle(ButtonStyle.Success)
             )
-          ],
-          ephemeral: true
+          ]
         });
       }
 
-      return sendQuiz(interaction, data.type, nextStep);
+      return openQuiz(interaction, data.type, data.step);
     }
 
-    // ================= PAY BUTTON =================
+    // PAY BUTTON
     if (interaction.isButton() && interaction.customId === "pay") {
 
-      const data = userData.get(interaction.user.id);
-      if (!data) return;
-
-      data.waitingUpload = true;
-
       return interaction.reply({
-        content: "📸 Ora invia la foto con il + (galleria Discord).",
+        content: "📸 Invia la foto del pagamento usando il + (galleria Discord).",
         ephemeral: true
       });
     }
@@ -242,20 +234,23 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
-// ================= SEND QUIZ FUNCTION =================
-function sendQuiz(interaction, type, step) {
+// ================= MODAL =================
+function openQuiz(interaction, type, step) {
 
   const questions = getStep(type, step);
 
+  const data = userData.get(interaction.user.id);
+  data.questions = questions;
+
   const modal = new ModalBuilder()
-    .setCustomId(`quiz_${step}`)
-    .setTitle(step === 0 ? "Quiz Patente" : "Continua Quiz");
+    .setCustomId("quiz")
+    .setTitle("Quiz Patente");
 
   questions.forEach((q, i) => {
     modal.addComponents(
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
-          .setCustomId(`q${i}`)
+          .setCustomId(q)
           .setLabel(q.slice(0, 45))
           .setStyle(TextInputStyle.Short)
       )
@@ -265,7 +260,7 @@ function sendQuiz(interaction, type, step) {
   return interaction.showModal(modal);
 }
 
-// ================= IMAGE UPLOAD =================
+// ================= UPLOAD IMAGE =================
 client.on("messageCreate", async (msg) => {
 
   if (msg.author.bot) return;
