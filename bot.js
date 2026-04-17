@@ -22,9 +22,7 @@ const client = new Client({
   ]
 });
 
-// =========================
-// CONFIG
-// =========================
+// ========================= CONFIG
 const CANALE_RICHIESTE = "1493595963942768860";
 const CANALE_STAFF = "1493597555760824503";
 
@@ -34,56 +32,44 @@ const RUOLI = {
   CD: "1493609213086142645"
 };
 
-// =========================
-// MEMORY
-// =========================
 const userData = new Map();
-let sent = false;
 
-// =========================
-// KEEP ALIVE (RENDER OK)
-// =========================
+// ========================= KEEP ALIVE (RENDER)
 const http = require("http");
-
-const server = http.createServer((req, res) => {
-  res.writeHead(200);
+http.createServer((req, res) => {
   res.end("Bot attivo");
-});
+}).listen(process.env.PORT || 3000);
 
-server.listen(process.env.PORT || 3000);
-
-// =========================
-// READY
-// =========================
+// ========================= READY
 client.once("ready", async () => {
   console.log("BOT PRONTO");
 
   const ch = await client.channels.fetch(CANALE_RICHIESTE);
 
-  if (!sent) {
-    const embed = new EmbedBuilder()
-      .setColor("Blue")
-      .setDescription("🏛️ Dipartimento Trasporti — Sud Italy RP");
+  const embed = new EmbedBuilder()
+    .setColor("Blue")
+    .setDescription("🏛️ Dipartimento Trasporti — Sud Italy RP");
 
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("start")
-        .setLabel("Richiedi patente")
-        .setStyle(ButtonStyle.Primary)
-    );
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("start")
+      .setLabel("Richiedi patente")
+      .setStyle(ButtonStyle.Primary)
+  );
 
-    await ch.send({ embeds: [embed], components: [row] });
-    sent = true;
-  }
+  await ch.send({ embeds: [embed], components: [row] });
 });
 
-// =========================
-// INTERACTIONS
-// =========================
+// ========================= FUNZIONE STEP
+function getStepQuestions(type, step) {
+  return QUIZ[type].slice(step * 5, (step + 1) * 5);
+}
+
+// ========================= INTERACTION
 client.on("interactionCreate", async (interaction) => {
   try {
 
-    // START BUTTON
+    // START
     if (interaction.isButton() && interaction.customId === "start") {
 
       const menu = new ActionRowBuilder().addComponents(
@@ -104,17 +90,22 @@ client.on("interactionCreate", async (interaction) => {
       });
     }
 
-    // SELECT → QUIZ DINAMICO
+    // SELECT
     if (interaction.isStringSelectMenu() && interaction.customId === "select") {
 
       const type = interaction.values[0];
-      userData.set(interaction.user.id, { type });
 
-      const questions = QUIZ[type].slice(0, 5);
+      userData.set(interaction.user.id, {
+        type,
+        step: 0,
+        answers: []
+      });
+
+      const questions = getStepQuestions(type, 0);
 
       const modal = new ModalBuilder()
         .setCustomId("quiz")
-        .setTitle("Quiz Patente");
+        .setTitle("Quiz Patente - Step 1");
 
       questions.forEach((q, i) => {
         modal.addComponents(
@@ -130,12 +121,12 @@ client.on("interactionCreate", async (interaction) => {
       return interaction.showModal(modal);
     }
 
-    // QUIZ SUBMIT
+    // QUIZ
     if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
       const data = userData.get(interaction.user.id);
 
-      data.answers = [
+      const answers = [
         interaction.fields.getTextInputValue("q1"),
         interaction.fields.getTextInputValue("q2"),
         interaction.fields.getTextInputValue("q3"),
@@ -143,13 +134,43 @@ client.on("interactionCreate", async (interaction) => {
         interaction.fields.getTextInputValue("q5")
       ];
 
+      data.answers.push(...answers);
+      data.step++;
+
+      // SE NON FINITO
+      if (data.step < 3) {
+
+        const questions = getStepQuestions(data.type, data.step);
+
+        const modal = new ModalBuilder()
+          .setCustomId("quiz")
+          .setTitle(`Quiz Patente - Step ${data.step + 1}`);
+
+        questions.forEach((q, i) => {
+          modal.addComponents(
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId(`q${i + 1}`)
+                .setLabel(q.slice(0, 45))
+                .setStyle(TextInputStyle.Short)
+            )
+          );
+        });
+
+        return interaction.reply({
+          content: "➡️ Continua il quiz...",
+          ephemeral: true
+        }).then(() => interaction.showModal(modal));
+      }
+
+      // FINE QUIZ
       return interaction.reply({
         content: "📸 Invia ora lo screenshot del pagamento.",
         ephemeral: true
       });
     }
 
-    // STAFF BUTTONS
+    // STAFF BOTTONI
     if (
       interaction.isButton() &&
       (interaction.customId.startsWith("accetta_") || interaction.customId.startsWith("rifiuta_"))
@@ -171,7 +192,7 @@ client.on("interactionCreate", async (interaction) => {
       return interaction.showModal(modal);
     }
 
-    // MOTIVO + RUOLO
+    // MOTIVO
     if (interaction.isModalSubmit() && interaction.customId.startsWith("motivo_")) {
 
       const action = interaction.customId.replace("motivo_", "");
@@ -180,8 +201,6 @@ client.on("interactionCreate", async (interaction) => {
 
       const member = await interaction.guild.members.fetch(id);
       const data = userData.get(id);
-
-      if (!data) return interaction.reply({ content: "Errore dati", ephemeral: true });
 
       if (action.startsWith("accetta")) {
         await member.roles.add(RUOLI[data.type]);
@@ -198,44 +217,5 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
-// =========================
-// FOTO
-// =========================
-client.on("messageCreate", async (msg) => {
-
-  if (msg.author.bot) return;
-
-  const data = userData.get(msg.author.id);
-  const img = msg.attachments.first();
-
-  if (!data || !img) return;
-
-  const staff = await client.channels.fetch(CANALE_STAFF);
-
-  const embed = new EmbedBuilder()
-    .setTitle("NUOVA PATENTE")
-    .setDescription(`👤 <@${msg.author.id}>`)
-    .setImage(img.url);
-
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`accetta_${msg.author.id}`)
-      .setLabel("ACCETTA")
-      .setStyle(ButtonStyle.Success),
-    new ButtonBuilder()
-      .setCustomId(`rifiuta_${msg.author.id}`)
-      .setLabel("RIFIUTA")
-      .setStyle(ButtonStyle.Danger)
-  );
-
-  await staff.send({ embeds: [embed], components: [row] });
-
-  await msg.reply("✅ Inviato allo staff");
-
-  userData.delete(msg.author.id);
-});
-
-// =========================
-// LOGIN
-// =========================
+// ========================= LOGIN
 client.login(process.env.TOKEN);
