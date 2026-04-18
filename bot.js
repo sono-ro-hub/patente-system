@@ -13,6 +13,7 @@ const {
 
 const express = require("express");
 const app = express();
+
 app.get("/", (req, res) => res.send("Bot online ✔"));
 app.listen(process.env.PORT || 3000);
 
@@ -45,21 +46,21 @@ const QUESTIONS = {
     "Casco obbligatorio quando si guida una moto?",
     "Fari accesi anche di giorno?",
     "Rallentare prima della curva?",
-    "È obbligatorio usare guanti?",
+    "Guanti obbligatori?",
     "Frenata su bagnato aumenta?",
   ],
   B: [
     "Cintura sempre obbligatoria?",
     "Limite urbano 50 km/h?",
     "Sorpasso con linea continua?",
-    "Serve distanza di sicurezza?",
+    "Serve distanza sicurezza?",
     "Specchietti obbligatori?",
   ],
   CD: [
     "Limite camion in città?",
-    "Cosa fai al semaforo rosso?",
-    "Chi ha precedenza agli incroci?",
-    "Quando usi anabbaglianti?",
+    "Semaforo rosso cosa fai?",
+    "Precedenza agli incroci?",
+    "Anabbaglianti quando?",
     "Ambulanza come ti comporti?",
   ],
 };
@@ -70,30 +71,31 @@ client.once("ready", async () => {
 
   const embed = new EmbedBuilder()
     .setColor("#0B1F3A")
-    .setDescription(
-`• 🏛️ Dipartimento Trasporti — __Sud Italy RP__
+    .setDescription(`• 🏛️ Dipartimento Trasporti — __Sud Italy RP__
 
 Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
 
 ━━━━━━━━━━━━━━━━━━
-📋Tipi di patente
+📋 Tipi di patente
+
 __🅰️ Patente A__
-Consente la guida di __motocicli__ e veicoli a due ruote.
+Motocicli e due ruote.
+
 __🅱️ Patente B__
-Permette di guidare __autovetture__ e veicoli leggeri.
+Auto e veicoli leggeri.
+
 __🅲 Patente C-D__
-Permette di guidare __camion__, __pullman__ o __autobus__.
+Camion, pullman e autobus.
 
 ━━━━━━━━━━━━━━━━━━
-📝Condizioni richieste
-• Essere un cittadino registrato
+📝 Condizioni richieste
+• Cittadino registrato
 • Comportamento civile
 • Nessuna sospensione
-• Conoscenza regole circolazione
+• Conoscenza regole
 
 ━━━━━━━━━━━━━━━━━━
-⚠️ Mancato rispetto = rifiuto automatico`
-    );
+⚠️ Mancato rispetto = rifiuto automatico`);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -105,7 +107,7 @@ Permette di guidare __camion__, __pullman__ o __autobus__.
   await ch.send({ embeds: [embed], components: [row] });
 });
 
-// ================= INTERACTION UNICO =================
+// ================= INTERACTION =================
 client.on("interactionCreate", async (interaction) => {
   try {
 
@@ -136,10 +138,11 @@ client.on("interactionCreate", async (interaction) => {
     }
 
     // ================= SELECT =================
-    if (interaction.isStringSelectMenu() && interaction.customId === "select") {
-      const type = interaction.values[0];
+    if (interaction.isStringSelectMenu()) {
 
+      const type = interaction.values[0];
       const member = interaction.member;
+
       if (member.roles.cache.has(RUOLI[type])) {
         return interaction.reply({
           content: "❌ Hai già questa patente",
@@ -170,10 +173,12 @@ client.on("interactionCreate", async (interaction) => {
 
     // ================= QUIZ =================
     if (interaction.isModalSubmit() && interaction.customId === "quiz") {
+
       const data = userData.get(interaction.user.id);
       if (!data) return;
 
       const answers = [];
+
       for (let i = 0; i < 5; i++) {
         answers.push(interaction.fields.getTextInputValue(`q${i}`));
       }
@@ -187,7 +192,7 @@ client.on("interactionCreate", async (interaction) => {
       });
     }
 
-    // ================= MOTIVO =================
+    // ================= BUTTON STAFF =================
     if (interaction.isButton()) {
       const [action, id] = interaction.customId.split("_");
       if (!pending.has(id)) return;
@@ -223,23 +228,46 @@ client.on("interactionCreate", async (interaction) => {
       const status = action === "accetta" ? "APPROVATA" : "RIFIUTATA";
 
       const staff = await client.channels.fetch(CANALE_STAFF);
-      const oldMsg = await staff.messages.fetch(req.messageId).catch(() => {});
-      if (oldMsg) await oldMsg.delete();
+      const old = await staff.messages.fetch(req.messageId).catch(() => {});
+      if (old) await old.delete();
 
-      const embed = new EmbedBuilder()
-        .setTitle(`📄 PATENTE ${status}`)
+      const qa = req.answers
+        .map((a, i) => `**${QUESTIONS[req.type][i]}**\n➡️ ${a}`)
+        .join("\n\n");
+
+      // LOG STAFF
+      const log = new EmbedBuilder()
+        .setTitle("📋 ESITO PATENTE")
         .setColor("#a81900")
         .addFields(
           { name: "Utente", value: `<@${req.userId}>` },
           { name: "Patente", value: req.type },
+          { name: "Esito", value: status },
+          { name: "Domande", value: qa.slice(0, 1024) },
           { name: "Motivo", value: reason }
         );
 
-      await staff.send({ embeds: [embed] });
+      await staff.send({ embeds: [log] });
 
+      // RUOLO
       if (member && action === "accetta") {
         await member.roles.add(RUOLI[req.type]);
       }
+
+      // DM UTENTE
+      const user = await client.users.fetch(req.userId);
+
+      await user.send({
+        embeds: [
+          new EmbedBuilder()
+            .setTitle(`📄 PATENTE ${status}`)
+            .setColor(action === "accetta" ? "Green" : "Red")
+            .addFields(
+              { name: "Patente", value: req.type },
+              { name: "Motivo", value: reason }
+            ),
+        ],
+      }).catch(() => {});
 
       pending.delete(id);
 
@@ -254,22 +282,24 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
-// ================= FOTO =================
+// ================= FOTO FIX =================
 client.on("messageCreate", async (msg) => {
   if (msg.author.bot) return;
-  if (msg.channel.id !== CANALE_FOTO) return;
 
   const data = userData.get(msg.author.id);
   if (!data || !data.waitingPhoto) return;
+
+  const okChannel =
+    msg.channel.id === CANALE_FOTO ||
+    msg.channel.isThread?.() ||
+    msg.channel.parentId === CANALE_FOTO;
+
+  if (!okChannel) return;
 
   const attachment = msg.attachments.first();
   if (!attachment) return;
 
   const id = msg.author.id + Date.now();
-
-  const qa = data.answers
-    .map((a, i) => `**${QUESTIONS[data.type][i]}**\n➡️ ${a}`)
-    .join("\n\n");
 
   pending.set(id, {
     userId: msg.author.id,
@@ -281,6 +311,10 @@ client.on("messageCreate", async (msg) => {
   userData.delete(msg.author.id);
 
   const staff = await client.channels.fetch(CANALE_STAFF);
+
+  const qa = data.answers
+    .map((a, i) => `**${QUESTIONS[data.type][i]}**\n➡️ ${a}`)
+    .join("\n\n");
 
   const embed = new EmbedBuilder()
     .setTitle("📄 NUOVA RICHIESTA PATENTE")
