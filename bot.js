@@ -11,20 +11,15 @@ const {
   TextInputStyle
 } = require("discord.js");
 
-// ================= EXPRESS FIX (RENDER WEB SERVICE) =================
 const express = require("express");
 const app = express();
 
-app.get("/", (req, res) => {
-  res.send("Bot online ✔");
+app.get("/", (req, res) => res.send("Bot online ✔"));
+
+app.listen(process.env.PORT || 3000, () => {
+  console.log("Server attivo");
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log("Server attivo su porta", PORT);
-});
-
-// ================= BOT =================
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -36,6 +31,8 @@ const client = new Client({
 
 // ================= CONFIG =================
 const CANALE_RICHIESTE = "1493595963942768860";
+const CANALE_STAFF = "1493597555760824503";
+const CANALE_FOTO = "1494066451152240650";
 
 const RUOLI = {
   A: "1493609058438090773",
@@ -44,6 +41,7 @@ const RUOLI = {
 };
 
 const userData = new Map();
+const pending = new Map();
 
 // ================= DOMANDE =================
 const QUESTIONS = {
@@ -73,8 +71,6 @@ const QUESTIONS = {
 // ================= READY =================
 client.once("ready", async () => {
 
-  console.log("BOT ONLINE ✔");
-
   const ch = await client.channels.fetch(CANALE_RICHIESTE);
 
   const embed = new EmbedBuilder()
@@ -92,38 +88,53 @@ client.once("ready", async () => {
   await ch.send({ embeds: [embed], components: [row] });
 });
 
-// ================= INTERACTION =================
+// ================= START =================
 client.on("interactionCreate", async (interaction) => {
 
   try {
 
-    // ================= START =================
     if (interaction.isButton() && interaction.customId === "start") {
 
-      const menu = new ActionRowBuilder().addComponents(
-        new StringSelectMenuBuilder()
-          .setCustomId("select")
-          .setPlaceholder("Seleziona patente")
-          .addOptions([
-            { label: "Patente A", value: "A" },
-            { label: "Patente B", value: "B" },
-            { label: "Patente C-D", value: "CD" }
-          ])
-      );
+      const member = interaction.member;
+
+      const options = [
+        { label: member.roles.cache.has(RUOLI.A) ? "Patente A (GIÀ)" : "Patente A", value: "A" },
+        { label: member.roles.cache.has(RUOLI.B) ? "Patente B (GIÀ)" : "Patente B", value: "B" },
+        { label: member.roles.cache.has(RUOLI.CD) ? "Patente C-D (GIÀ)" : "Patente C-D", value: "CD" }
+      ];
 
       return interaction.reply({
-        content: "Scegli la patente:",
-        components: [menu],
+        content: "Seleziona patente:",
+        components: [
+          new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+              .setCustomId("select")
+              .setPlaceholder("Scegli patente")
+              .addOptions(options)
+          )
+        ],
         ephemeral: true
       });
     }
 
     // ================= SELECT =================
-    if (interaction.isStringSelectMenu() && interaction.customId === "select") {
+    if (interaction.isStringSelectMenu()) {
 
       const type = interaction.values[0];
+      const member = interaction.member;
 
-      userData.set(interaction.user.id, { type });
+      // 🔒 BLOCCO SE GIÀ POSSEDUTA
+      if (member.roles.cache.has(RUOLI[type])) {
+        return interaction.reply({
+          content: "❌ Hai già questa patente",
+          ephemeral: true
+        });
+      }
+
+      userData.set(interaction.user.id, {
+        type,
+        answers: []
+      });
 
       const q = QUESTIONS[type];
 
@@ -151,7 +162,7 @@ client.on("interactionCreate", async (interaction) => {
     }
 
     // ================= QUIZ =================
-    if (interaction.isModalSubmit() && interaction.customId === "quiz") {
+    if (interaction.isModalSubmit()) {
 
       const data = userData.get(interaction.user.id);
       if (!data) return;
@@ -162,8 +173,11 @@ client.on("interactionCreate", async (interaction) => {
         answers.push(interaction.fields.getTextInputValue(`q${i}`));
       }
 
+      data.answers = answers;
+      data.waitingPhoto = true;
+
       return interaction.reply({
-        content: `✔ Hai completato il quiz per la patente **${data.type}**`,
+        content: `📸 Ora vai nel canale <#${CANALE_FOTO}> e invia la foto del pagamento.`,
         ephemeral: true
       });
     }
@@ -171,7 +185,78 @@ client.on("interactionCreate", async (interaction) => {
   } catch (err) {
     console.log(err);
   }
+});
 
+// ================= FOTO =================
+client.on("messageCreate", async (msg) => {
+
+  if (msg.author.bot) return;
+  if (msg.channel.id !== CANALE_FOTO) return;
+
+  const data = userData.get(msg.author.id);
+  if (!data || !data.waitingPhoto) return;
+
+  const attachment = msg.attachments.first();
+  if (!attachment) return;
+
+  const id = msg.author.id + Date.now();
+
+  pending.set(id, {
+    userId: msg.author.id,
+    type: data.type,
+    answers: data.answers,
+    photo: attachment.url
+  });
+
+  userData.delete(msg.author.id);
+
+  const staff = await client.channels.fetch(CANALE_STAFF);
+
+  const embed = new EmbedBuilder()
+    .setTitle("📄 NUOVA RICHIESTA PATENTE")
+    .setDescription(`<@${msg.author.id}>`)
+    .setImage(attachment.url);
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`accetta_${id}`).setLabel("ACCETTA").setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId(`rifiuta_${id}`).setLabel("RIFIUTA").setStyle(ButtonStyle.Danger)
+  );
+
+  await staff.send({ embeds: [embed], components: [row] });
+});
+
+// ================= STAFF DECISION =================
+client.on("interactionCreate", async (interaction) => {
+
+  if (!interaction.isButton()) return;
+
+  const [action, id] = interaction.customId.split("_");
+  const req = pending.get(id);
+
+  if (!req) return;
+
+  const member = await interaction.guild.members.fetch(req.userId);
+
+  if (action === "accetta") {
+    await member.roles.add(RUOLI[req.type]);
+  }
+
+  const user = await client.users.fetch(req.userId);
+
+  await user.send({
+    embeds: [
+      new EmbedBuilder()
+        .setTitle(action === "accetta" ? "✔ PATENTE APPROVATA" : "❌ PATENTE RIFIUTATA")
+        .setDescription(`Patente: **${req.type}**`)
+    ]
+  }).catch(() => {});
+
+  pending.delete(id);
+
+  return interaction.reply({
+    content: "✔ Fatto",
+    ephemeral: true
+  });
 });
 
 client.login(process.env.TOKEN);
