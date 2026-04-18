@@ -62,13 +62,14 @@ CD:[
 ]
 };
 
-// ================= READY =================
+// ================= READY (UNICO E STABILE) =================
 client.once("ready", async () => {
   console.log("BOT ONLINE");
 
   const ch = await client.channels.fetch(CANALE_RICHIESTE);
 
-  const embed = new EmbedBuilder()
+  // ===== EMBED START =====
+  const embedStart = new EmbedBuilder()
     .setColor("Blue")
     .setDescription("• 🏛️ Dipartimento Trasporti — __Sud Italy RP__");
 
@@ -79,14 +80,61 @@ client.once("ready", async () => {
       .setStyle(ButtonStyle.Primary)
   );
 
-  await ch.send({ embeds: [embed], components: [row] });
+  await ch.send({
+    embeds: [embedStart],
+    components: [row]
+  });
+
+  // ===== EMBED COMPLETO (LA TUA DESCRIZIONE IDENTICA) =====
+  const embed = new EmbedBuilder()
+    .setColor("#87CEFA")
+    .setDescription(`•  🏛️ Dipartimento Trasporti — __Sud Italy RP__
+
+Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
+
+━━━━━━━━━━━━━━━━━━
+📋Tipi di patente
+__🅰️ Patente A__
+Consente la guida di __motocicli__ e veicoli a due ruote.
+
+__🅱️ Patente B__
+Permette di guidare __autovetture__ e veicoli leggeri.
+
+__🅲 Patente C-D__
+Permette di far guidare __camion__, __pullman__ o __autobus__, utili per il trasporto delle merci e delle persone.
+
+━━━━━━━━━━━━━━━━━━
+__📝Condizioni richieste__
+
+• Essere un __cittadino__ registrato e approvato all’interno del server  
+• Avere un __comportamento civile__ e rispettoso delle regole RP  
+• Non essere __soggetto__ a __sospensioni__ o provvedimenti attivi  
+• Dimostrare una __conoscenza adeguata__ delle norme di circolazione
+
+━━━━━━━━━━━━━━━━━━
+⚠️ Il mancato rispetto dei requisiti comporterà il rifiuto automatico della richiesta.
+
+**📄INFORMAZIONI PATENTE📄**
+__**INFORMAZIONI PATENTE**__
+
+***Ecco alcuni step per fare la patente in maniera corretta***
+
+**1) Inviare il quiz per la patente che volete fare e attendere che lo staff member lo corregga***
+
+**2) Inviare 3k in game all'id Lessimanuardi123 e inviare la foto su PAGAMENTI PATENTE e attendere che lo staff member applichi la tipologia di patente desiderata***
+
+**3) Invitiamo tutti a fare la patente per viaggiare in maniera sicura e in maniera indipendente, Il consiglio che possiamo è quando vi ferma un agente delle FDO per una controllo dovete fornire il nome discord e per vedere se avete la tipologia di patente per la quale state usando il veicolo se vi vedranno senza patente dovrete pagare __**1k di multa**__`
+    );
+
+  await ch.send({
+    embeds: [embed]
+  });
 });
 
 // ================= INTERACTION =================
 client.on("interactionCreate", async interaction => {
 try {
 
-  // ===== START BUTTON =====
   if (interaction.isButton() && interaction.customId === "start") {
 
     const menu = new ActionRowBuilder().addComponents(
@@ -107,7 +155,6 @@ try {
     });
   }
 
-  // ===== SELECT =====
   if (interaction.isStringSelectMenu()) {
 
     const type = interaction.values[0];
@@ -136,7 +183,6 @@ try {
     return interaction.showModal(modal);
   }
 
-  // ===== QUIZ =====
   if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
     const data = userData.get(interaction.user.id);
@@ -149,21 +195,18 @@ try {
     data.waitingPhoto = true;
 
     return interaction.reply({
-      content: `📸 Vai nel canale <#${CANALE_FOTO}> e carica la foto del pagamento.`,
+      content: `📸 Vai nel canale <#${CANALE_FOTO}> e clicca il + per allegare la foto del pagamento.`,
       ephemeral: true
     });
   }
 
-  // ===== BOTTONI STAFF (FIX INTERAZIONE) =====
+  // ===== BOTTONI STAFF =====
   if (interaction.isButton()) {
 
     if (
       interaction.customId.startsWith("accetta_") ||
       interaction.customId.startsWith("rifiuta_")
     ) {
-
-      // 🔥 FIX: evita timeout interazione
-      await interaction.deferUpdate();
 
       const modal = new ModalBuilder()
         .setCustomId(`motivo_${interaction.customId}`)
@@ -183,18 +226,17 @@ try {
     }
   }
 
-  // ===== MOTIVO SUBMIT (FIX PARSING) =====
+  // ===== MOTIVO =====
   if (
     interaction.isModalSubmit() &&
     interaction.customId.startsWith("motivo_")
   ) {
 
     const full = interaction.customId.replace("motivo_", "");
+    const last = full.lastIndexOf("_");
 
-    // 🔥 FIX SICURO
-    const lastUnderscore = full.lastIndexOf("_");
-    const action = full.slice(0, lastUnderscore);
-    const id = full.slice(lastUnderscore + 1);
+    const action = full.slice(0, last);
+    const id = full.slice(last + 1);
 
     const req = pending.get(id);
     if (!req) return;
@@ -203,9 +245,9 @@ try {
 
     const member = await interaction.guild.members.fetch(id).catch(() => null);
 
-    const qa = req.answers
-      .map((a, i) => `**${QUESTIONS[req.type][i]}**\n${a}`)
-      .join("\n\n");
+    const qa = req.answers.map((a, i) =>
+      `**${QUESTIONS[req.type][i]}**\n${a}`
+    ).join("\n\n");
 
     const decision = action === "accetta" ? "APPROVATA" : "RIFIUTATA";
 
@@ -269,9 +311,9 @@ try {
 
   userData.delete(msg.author.id);
 
-  const qa = data.answers
-    .map((a, i) => `**${QUESTIONS[data.type][i]}**\n${a}`)
-    .join("\n\n");
+  const qa = data.answers.map((a, i) =>
+    `**${QUESTIONS[data.type][i]}**\n${a}`
+  ).join("\n\n");
 
   const embed = new EmbedBuilder()
     .setTitle("📄 NUOVA RICHIESTA PATENTE")
@@ -288,7 +330,6 @@ try {
       .setCustomId(`accetta_${msg.author.id}`)
       .setLabel("ACCETTA")
       .setStyle(ButtonStyle.Success),
-
     new ButtonBuilder()
       .setCustomId(`rifiuta_${msg.author.id}`)
       .setLabel("RIFIUTA")
