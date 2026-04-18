@@ -8,8 +8,7 @@ const {
   StringSelectMenuBuilder,
   ModalBuilder,
   TextInputBuilder,
-  TextInputStyle,
-  PermissionsBitField
+  TextInputStyle
 } = require("discord.js");
 
 const express = require("express");
@@ -42,28 +41,55 @@ const RUOLI = {
 const userData = new Map();
 const pending = new Map();
 
-// ================= DOMANDE =================
-const QUESTIONS = {
+// ================= QUIZ COMPLETO =================
+const QUIZ = {
   A: [
-    "Casco obbligatorio quando si guida una moto?",
+    "Il casco è obbligatorio quando guidi la moto?",
     "I fari devono essere accesi anche di giorno?",
-    "In curva bisogna rallentare prima di entrare?",
-    "È obbligatorio usare guanti?",
-    "Su strada bagnata la frenata aumenta?"
+    "In curva bisogna rallentare prima di entrarci?",
+    "Posso guidare senza guanti?",
+    "Su strada bagnata la frenata è più lunga?",
+    "Il freno anteriore è più potente?",
+    "È vietato superare a destra?",
+    "Pneumatici lisci sono sicuri?",
+    "La freccia è obbligatoria?",
+    "Il casco deve essere allacciato?",
+    "Posso guidare contromano?",
+    "Il limite urbano è 50 km/h?",
+    "Si può guidare senza patente?",
+    "Con pioggia aumenta distanza?",
+    "Il clacson è solo per emergenza?"
   ],
+
   B: [
-    "La cintura è obbligatoria sempre?",
-    "Il limite in città è 50 km/h?",
-    "Si può sorpassare con linea continua?",
-    "Serve distanza di sicurezza?",
-    "Gli specchietti sono obbligatori?"
+    "Il casco è obbligatorio in auto?",
+    "In città il limite è 50 km/h?",
+    "La cintura va sempre allacciata?",
+    "Posso sorpassare con linea continua?",
+    "La distanza di sicurezza serve?",
+    "Il semaforo rosso significa stop?",
+    "Posso usare telefono senza vivavoce?",
+    "I fari vanno accesi di notte?",
+    "La frenata sul bagnato è più lunga?",
+    "I bambini devono usare seggiolini?",
+    "La precedenza a destra vale sempre?",
+    "Il parcheggio vietato è segnalato?",
+    "Il sorpasso a sinistra è obbligatorio?",
+    "Bisogna rispettare i limiti?",
+    "Autostrada limite 130 km/h?"
   ],
+
   CD: [
     "Limite camion in città?",
     "Cosa fai al semaforo rosso?",
     "Chi ha precedenza agli incroci?",
-    "Quando usi le luci anabbaglianti?",
-    "Come comportarsi con ambulanza?"
+    "Quando accendi anabbaglianti?",
+    "Come comportarsi con ambulanza?",
+    "Veicolo per più persone?",
+    "Cos’è distanza sicurezza?",
+    "Cos’è freno motore?",
+    "Dove parcheggiano camion?",
+    "Significato segnale camion?"
   ]
 };
 
@@ -74,29 +100,24 @@ client.once("ready", async () => {
 
   const embed = new EmbedBuilder()
     .setColor("#0B1F3A")
-    .setDescription(`•  🏛️ Dipartimento Trasporti — __Sud Italy RP__
+    .setDescription(`• 🏛️ Dipartimento Trasporti — __Sud Italy RP__
 
-Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
-
-━━━━━━━━━━━━━━━━━━
-📋Tipi di patente
-__🅰️ Patente A__
-Consente la guida di __motocicli__ e veicoli a due ruote.
-__🅱️ Patente B__
-Permette di guidare __autovetture__ e veicoli leggeri.
-__🅲 Patente C-D__
-Permette di guidare __camion__, __pullman__ o __autobus__.
+Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale.
 
 ━━━━━━━━━━━━━━━━━━
-📝Condizioni richieste
-
-• Essere un __cittadino__ registrato e approvato all’interno del server  
-• Avere un __comportamento civile__ e rispettoso delle regole RP  
-• Non essere __soggetto__ a sospensioni o provvedimenti attivi  
-• Dimostrare una __conoscenza adeguata__ delle norme di circolazione  
+📋 Tipi di patente
+🅰️ A → moto
+🅱️ B → auto
+🅲 CD → camion/bus
 
 ━━━━━━━━━━━━━━━━━━
-⚠️ Il mancato rispetto comporterà il rifiuto automatico della richiesta.`);
+📝 Requisiti
+• cittadino RP
+• comportamento civile
+• conoscenza codice strada
+
+━━━━━━━━━━━━━━━━━━
+⚠️ violazioni = rifiuto automatico`);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -115,9 +136,9 @@ client.on("interactionCreate", async (interaction) => {
 
     if (interaction.isButton() && interaction.customId === "start") {
 
-      await interaction.deferReply({ flags: 64 });
-
       const member = interaction.member;
+
+      await interaction.deferReply({ flags: 64 });
 
       const menu = new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
@@ -125,15 +146,15 @@ client.on("interactionCreate", async (interaction) => {
           .setPlaceholder("Seleziona patente")
           .addOptions([
             {
-              label: member.roles.cache.has(RUOLI.A) ? "Patente A (GIÀ)" : "Patente A",
+              label: member.roles.cache.has(RUOLI.A) ? "A (GIÀ)" : "Patente A",
               value: "A"
             },
             {
-              label: member.roles.cache.has(RUOLI.B) ? "Patente B (GIÀ)" : "Patente B",
+              label: member.roles.cache.has(RUOLI.B) ? "B (GIÀ)" : "Patente B",
               value: "B"
             },
             {
-              label: member.roles.cache.has(RUOLI.CD) ? "Patente C-D (GIÀ)" : "Patente C-D",
+              label: member.roles.cache.has(RUOLI.CD) ? "CD (GIÀ)" : "Patente C-D",
               value: "CD"
             }
           ])
@@ -152,35 +173,33 @@ client.on("interactionCreate", async (interaction) => {
       const member = interaction.member;
 
       if (member.roles.cache.has(RUOLI[type])) {
-        return interaction.reply({
-          content: "❌ Hai già questa patente",
-          flags: 64
-        });
+        return interaction.reply({ content: "❌ già possiedi questa patente", flags: 64 });
       }
 
       userData.set(interaction.user.id, { type });
 
-      const q = QUESTIONS[type];
+      // 🔥 SOLO 5 DOMANDE RANDOM (ANTI CRASH)
+      const questions = QUIZ[type]
+        .sort(() => 0.5 - Math.random())
+        .slice(0, 5);
 
       const modal = new ModalBuilder()
         .setCustomId("quiz")
         .setTitle("Quiz Patente");
 
-      const rows = [];
-
-      for (let i = 0; i < 5; i++) {
-        rows.push(
+      questions.forEach((q, i) => {
+        modal.addComponents(
           new ActionRowBuilder().addComponents(
             new TextInputBuilder()
               .setCustomId(`q${i}`)
-              .setLabel(q[i].slice(0, 45))
+              .setLabel(q.slice(0, 45))
               .setStyle(TextInputStyle.Short)
               .setRequired(true)
           )
         );
-      }
+      });
 
-      modal.addComponents(rows);
+      userData.get(interaction.user.id).questions = questions;
 
       return interaction.showModal(modal);
     }
@@ -201,7 +220,7 @@ client.on("interactionCreate", async (interaction) => {
       data.waitingPhoto = true;
 
       return interaction.reply({
-        content: `📸 Vai nel canale <#${CANALE_FOTO}> e invia la foto.`,
+        content: `📸 invia la foto nel canale <#${CANALE_FOTO}>`,
         flags: 64
       });
     }
@@ -211,14 +230,10 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
-// ================= FOTO (FORUM + CANALE) =================
+// ================= FOTO =================
 client.on("messageCreate", async (msg) => {
 
   if (msg.author.bot) return;
-
-  const isForum = msg.channel.isThread?.() || msg.channel.parent?.type === 15;
-
-  if (!isForum && msg.channel.id !== CANALE_FOTO) return;
 
   const data = userData.get(msg.author.id);
   if (!data || !data.waitingPhoto) return;
@@ -229,13 +244,14 @@ client.on("messageCreate", async (msg) => {
   const id = msg.author.id + Date.now();
 
   const qa = data.answers
-    .map((a, i) => `**${QUESTIONS[data.type][i]}**\n➡️ ${a}`)
+    .map((a, i) => `**${data.questions[i]}**\n➡️ ${a}`)
     .join("\n\n");
 
   pending.set(id, {
     userId: msg.author.id,
     type: data.type,
     answers: data.answers,
+    questions: data.questions,
     photo: attachment.url
   });
 
@@ -249,8 +265,7 @@ client.on("messageCreate", async (msg) => {
     .addFields(
       { name: "👤 Utente", value: `<@${msg.author.id}>` },
       { name: "🚗 Patente", value: data.type },
-      { name: "📋 Domande & Risposte", value: qa.slice(0, 1024) },
-      { name: "📸 Stato", value: "In attesa decisione" }
+      { name: "📋 Quiz", value: qa.slice(0, 1024) }
     )
     .setImage(attachment.url);
 
@@ -264,7 +279,7 @@ client.on("messageCreate", async (msg) => {
   pending.get(id).messageId = sent.id;
 });
 
-// ================= MOTIVO =================
+// ================= DECISION =================
 client.on("interactionCreate", async (interaction) => {
 
   if (!interaction.isButton()) return;
@@ -281,7 +296,7 @@ client.on("interactionCreate", async (interaction) => {
     new ActionRowBuilder().addComponents(
       new TextInputBuilder()
         .setCustomId("reason")
-        .setLabel("Scrivi motivo")
+        .setLabel("Motivo")
         .setStyle(TextInputStyle.Paragraph)
         .setRequired(true)
     )
@@ -306,9 +321,7 @@ client.on("interactionCreate", async (interaction) => {
 
   const status = action === "accetta" ? "ACCETTATA" : "RIFIUTATA";
 
-  const qa = req.answers
-    .map((a, i) => `**${QUESTIONS[req.type][i]}**\n➡️ ${a}`)
-    .join("\n\n");
+  const staff = await client.channels.fetch(CANALE_STAFF);
 
   const log = new EmbedBuilder()
     .setTitle("📋 ESITO PATENTE")
@@ -317,17 +330,14 @@ client.on("interactionCreate", async (interaction) => {
       { name: "👤 Utente", value: `<@${req.userId}>` },
       { name: "🚗 Patente", value: req.type },
       { name: "📊 Stato", value: status },
-      { name: "🧾 Domande & Risposte", value: qa.slice(0, 1024) },
-      { name: "📝 Motivo", value: reason },
-      { name: "👮 Staff", value: `<@${interaction.user.id}>` }
+      { name: "📝 Motivo", value: reason }
     )
     .setImage(req.photo);
 
-  const staff = await client.channels.fetch(CANALE_STAFF);
-
   await staff.send({ embeds: [log] });
 
-  const old = await staff.messages.fetch(req.messageId).catch(() => {});
+  // 🔥 FIX: sparisce messaggio richiesta
+  const old = await staff.messages.fetch(req.messageId).catch(() => null);
   if (old) await old.delete();
 
   if (member && action === "accetta") {
@@ -350,11 +360,7 @@ client.on("interactionCreate", async (interaction) => {
 
   pending.delete(id);
 
-  return interaction.reply({
-    content: "✔ Fatto",
-    flags: 64
-  });
+  return interaction.reply({ content: "✔ fatto", flags: 64 });
 });
 
 client.login(process.env.TOKEN);
-      
