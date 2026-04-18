@@ -72,30 +72,17 @@ const embed=new EmbedBuilder()
 .setTitle("🏛️ Dipartimento Trasporti")  
 .setDescription(`• 🏛️ Dipartimento Trasporti — __Sud Italy RP__
 
-Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
+Se desideri metterti alla guida in modo regolare, devi ottenere una patente ufficiale.
 
 ━━━━━━━━━━━━━━━━━━
 📋 Tipi di patente
 
-__🅰️ Patente A__  
-Moto e veicoli a due ruote  
-
-__🅱️ Patente B__  
-Autovetture e veicoli leggeri  
-
-__🅲 Patente C-D__  
-Camion, autobus e mezzi pesanti  
+🅰️ Patente A → Moto  
+🅱️ Patente B → Auto  
+🅲 Patente C-D → Camion e autobus  
 
 ━━━━━━━━━━━━━━━━━━
-__📝 Condizioni richieste__
-
-• Essere cittadino registrato  
-• Comportamento civile  
-• Nessuna sospensione attiva  
-• Conoscenza codice stradale  
-
-━━━━━━━━━━━━━━━━━━
-⚠️ Se possiedi già la patente richiesta, non puoi rifare il test.`);  
+⚠️ Se possiedi già la patente NON puoi rifare il test.`);  
 
 const row=new ActionRowBuilder().addComponents(  
 new ButtonBuilder()  
@@ -118,7 +105,6 @@ if(interaction.isButton() && interaction.customId==="start"){
 
 const member=interaction.member;  
 
-// ❌ BLOCCO PATENTE GIÀ POSSEDUTA  
 const options=[];  
 
 if(!member.roles.cache.has(RUOLI.A))  
@@ -132,7 +118,7 @@ options.push({label:"Patente C-D",value:"CD"});
 
 if(options.length===0){  
 return interaction.reply({  
-content:"❌ Hai già tutte le patenti disponibili.",  
+content:"❌ Hai già tutte le patenti.",  
 ephemeral:true  
 });  
 }  
@@ -151,7 +137,7 @@ ephemeral:true
 });  
 }  
 
-// SELECT  
+// ================= SELECT FIX (QUI ERA IL BUG) =================  
 if(interaction.isStringSelectMenu()){  
 
 const type=interaction.values[0];  
@@ -161,19 +147,47 @@ type,
 answers:[]  
 });  
 
+const q=QUESTIONS[type];  
+
 const modal=new ModalBuilder()  
 .setCustomId("quiz")  
 .setTitle("Quiz Patente");  
 
 modal.addComponents(  
-...QUESTIONS[type].map((q,i)=>  
 new ActionRowBuilder().addComponents(  
 new TextInputBuilder()  
-.setCustomId(`q${i}`)  
-.setLabel(q)  
+.setCustomId("q0")  
+.setLabel(q[0])  
 .setStyle(TextInputStyle.Short)  
 .setRequired(true)  
-)  
+),  
+new ActionRowBuilder().addComponents(  
+new TextInputBuilder()  
+.setCustomId("q1")  
+.setLabel(q[1])  
+.setStyle(TextInputStyle.Short)  
+.setRequired(true)  
+),  
+new ActionRowBuilder().addComponents(  
+new TextInputBuilder()  
+.setCustomId("q2")  
+.setLabel(q[2])  
+.setStyle(TextInputStyle.Short)  
+.setRequired(true)  
+),  
+new ActionRowBuilder().addComponents(  
+new TextInputBuilder()  
+.setCustomId("q3")  
+.setLabel(q[3])  
+.setStyle(TextInputStyle.Short)  
+.setRequired(true)  
+),  
+new ActionRowBuilder().addComponents(  
+new TextInputBuilder()  
+.setCustomId("q4")  
+.setLabel(q[4])  
+.setStyle(TextInputStyle.Short)  
+.setRequired(true)  
 )  
 );  
 
@@ -227,6 +241,7 @@ if(interaction.isModalSubmit() && interaction.customId.startsWith("motivo_")){
 const [,action,userId]=interaction.customId.split("_");  
 
 const req=pending.get(userId);  
+
 if(!req){  
 return interaction.reply({  
 content:"❌ Richiesta non trovata",  
@@ -240,7 +255,7 @@ const member=await interaction.guild.members.fetch(userId).catch(()=>null);
 
 const decision=action==="accetta"?"APPROVATA":"RIFIUTATA";  
 
-// LOG STAFF  
+// STAFF LOG  
 const staffEmbed=new EmbedBuilder()  
 .setTitle(`📄 PATENTE ${decision}`)  
 .setColor(decision==="APPROVATA"?"Green":"Red")  
