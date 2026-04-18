@@ -43,7 +43,7 @@ client.once("ready", async () => {
   const ch = await client.channels.fetch(CANALE_RICHIESTE);
 
   const embed = new EmbedBuilder()
-    .setColor("#87CEFA")
+    .setColor("#0B1F3A") // 🔵 BLU SCURO
     .setDescription(`•  🏛️ Dipartimento Trasporti — __Sud Italy RP__
 
 Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
