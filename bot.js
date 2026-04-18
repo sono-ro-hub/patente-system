@@ -15,7 +15,6 @@ const express = require("express");
 const app = express();
 
 app.get("/", (req, res) => res.send("Bot online ✔"));
-
 app.listen(process.env.PORT || 3000);
 
 const client = new Client({
@@ -41,7 +40,7 @@ const RUOLI = {
 const userData = new Map();
 const pending = new Map();
 
-// ================= QUIZ COMPLETO =================
+// ================= QUIZ =================
 const QUIZ = {
   A: [
     "Il casco è obbligatorio quando guidi la moto?",
@@ -100,24 +99,29 @@ client.once("ready", async () => {
 
   const embed = new EmbedBuilder()
     .setColor("#0B1F3A")
-    .setDescription(`• 🏛️ Dipartimento Trasporti — __Sud Italy RP__
+    .setDescription(`•  🏛️ Dipartimento Trasporti — __Sud Italy RP__
 
-Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale.
-
-━━━━━━━━━━━━━━━━━━
-📋 Tipi di patente
-🅰️ A → moto
-🅱️ B → auto
-🅲 CD → camion/bus
+Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
 
 ━━━━━━━━━━━━━━━━━━
-📝 Requisiti
-• cittadino RP
-• comportamento civile
-• conoscenza codice strada
+📋Tipi di patente
+__🅰️ Patente A__
+Consente la guida di __motocicli__ e veicoli a due ruote.
+__🅱️ Patente B__
+Permette di guidare __autovetture__ e veicoli leggeri.
+__🅲 Patente C-D__
+Permette di far guidare __camion__, __pullman__ o __autobus__.
 
 ━━━━━━━━━━━━━━━━━━
-⚠️ violazioni = rifiuto automatico`);
+📝Condizioni richieste
+
+• Essere un __cittadino__ registrato e approvato all’interno del server  
+• Avere un __comportamento civile__ e rispettoso delle regole RP  
+• Non essere __soggetto__ a __sospensioni__ o provvedimenti attivi  
+• Dimostrare una __conoscenza adeguata__ delle norme di circolazione  
+
+━━━━━━━━━━━━━━━━━━
+⚠️ Il mancato rispetto dei requisiti comporterà il rifiuto automatico della richiesta.`);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -136,9 +140,9 @@ client.on("interactionCreate", async (interaction) => {
 
     if (interaction.isButton() && interaction.customId === "start") {
 
-      const member = interaction.member;
-
       await interaction.deferReply({ flags: 64 });
+
+      const member = interaction.member;
 
       const menu = new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
@@ -176,32 +180,16 @@ client.on("interactionCreate", async (interaction) => {
         return interaction.reply({ content: "❌ già possiedi questa patente", flags: 64 });
       }
 
-      userData.set(interaction.user.id, { type });
+      const shuffled = QUIZ[type].sort(() => 0.5 - Math.random());
 
-      // 🔥 SOLO 5 DOMANDE RANDOM (ANTI CRASH)
-      const questions = QUIZ[type]
-        .sort(() => 0.5 - Math.random())
-        .slice(0, 5);
-
-      const modal = new ModalBuilder()
-        .setCustomId("quiz")
-        .setTitle("Quiz Patente");
-
-      questions.forEach((q, i) => {
-        modal.addComponents(
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder()
-              .setCustomId(`q${i}`)
-              .setLabel(q.slice(0, 45))
-              .setStyle(TextInputStyle.Short)
-              .setRequired(true)
-          )
-        );
+      userData.set(interaction.user.id, {
+        type,
+        step: 0,
+        questions: shuffled,
+        answers: []
       });
 
-      userData.get(interaction.user.id).questions = questions;
-
-      return interaction.showModal(modal);
+      return sendQuiz(interaction);
     }
 
     // ================= QUIZ =================
@@ -210,25 +198,61 @@ client.on("interactionCreate", async (interaction) => {
       const data = userData.get(interaction.user.id);
       if (!data) return;
 
-      const answers = [];
+      const start = data.step * 5;
 
       for (let i = 0; i < 5; i++) {
-        answers.push(interaction.fields.getTextInputValue(`q${i}`));
+        data.answers[start + i] =
+          interaction.fields.getTextInputValue(`q${i}`);
       }
 
-      data.answers = answers;
-      data.waitingPhoto = true;
+      data.step++;
 
-      return interaction.reply({
-        content: `📸 invia la foto nel canale <#${CANALE_FOTO}>`,
-        flags: 64
-      });
+      if (data.step * 5 >= data.questions.length) {
+
+        data.waitingPhoto = true;
+
+        return interaction.reply({
+          content: `📸 invia la foto nel canale <#${CANALE_FOTO}>`,
+          flags: 64
+        });
+      }
+
+      return sendQuiz(interaction);
     }
 
   } catch (err) {
     console.log(err);
   }
 });
+
+// ================= FUNZIONE QUIZ =================
+async function sendQuiz(interaction) {
+
+  const data = userData.get(interaction.user.id);
+
+  const start = data.step * 5;
+  const questions = data.questions.slice(start, start + 5);
+
+  const modal = new ModalBuilder()
+    .setCustomId("quiz")
+    .setTitle("Quiz Patente");
+
+  questions.forEach((q, i) => {
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId(`q${i}`)
+          .setLabel(q.slice(0, 45))
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true)
+      )
+    );
+  });
+
+  data.currentQuestions = questions;
+
+  return interaction.showModal(modal);
+}
 
 // ================= FOTO =================
 client.on("messageCreate", async (msg) => {
@@ -336,7 +360,6 @@ client.on("interactionCreate", async (interaction) => {
 
   await staff.send({ embeds: [log] });
 
-  // 🔥 FIX: sparisce messaggio richiesta
   const old = await staff.messages.fetch(req.messageId).catch(() => null);
   if (old) await old.delete();
 
