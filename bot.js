@@ -11,6 +11,15 @@ const {
   TextInputStyle
 } = require("discord.js");
 
+const express = require("express");
+const app = express();
+
+app.get("/", (req, res) => {
+  res.send("Bot online");
+});
+
+app.listen(process.env.PORT || 3000);
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -43,7 +52,7 @@ client.once("ready", async () => {
   const ch = await client.channels.fetch(CANALE_RICHIESTE);
 
   const embed = new EmbedBuilder()
-    .setColor("#0B1F3A") // 🔵 BLU SCURO
+    .setColor("#0B1F3A")
     .setDescription(`•  🏛️ Dipartimento Trasporti — __Sud Italy RP__
 
 Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
@@ -87,7 +96,6 @@ try {
 
   if (!interaction.isRepliable()) return;
 
-  // START
   if (interaction.isButton() && interaction.customId === "start") {
 
     const member = interaction.member;
@@ -119,7 +127,6 @@ try {
     });
   }
 
-  // SELECT
   if (interaction.isStringSelectMenu()) {
 
     const type = interaction.values[0];
@@ -148,7 +155,6 @@ try {
     return interaction.showModal(modal);
   }
 
-  // QUIZ
   if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
     const data = userData.get(interaction.user.id);
