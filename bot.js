@@ -27,19 +27,44 @@ GatewayIntentBits.GuildMembers
 ]
 });
 
-// ================= CONFIG =================
-const CANALE_RICHIESTE = "1493595963942768860";
-const CANALE_STAFF = "1493597555760824503";
-const CANALE_FOTO = "1495160562097721634";
+// ================= MULTI SERVER CONFIG =================
+const SERVERS = {
+S1: {
+GUILD_ID: "1484912853126221896",
 
-const RUOLI = {
+CANALE_RICHIESTE: "1493595963942768860",
+CANALE_STAFF: "1493597555760824503",
+CANALE_FOTO: "1495160562097721634",
+
+RUOLI: {
 A: "1493609058438090773",
 B: "1493609132996165633",
 CD: "1493609213086142645"
+}
+},
+
+S2: {
+GUILD_ID: "1402407968879808656",
+
+CANALE_RICHIESTE: "1495181447877886012",
+CANALE_STAFF: "1442639604611026997",
+CANALE_FOTO: "1495181979384025209",
+
+RUOLI: {
+A: "1448725161338470420",
+B: "1448725504470552708",
+C: "1448725713523048468"
+}
+}
 };
 
+// ================= UTILS =================
 const userData = new Map();
 const pending = new Map();
+
+function getServer(guildId) {
+return Object.values(SERVERS).find(s => s.GUILD_ID === guildId);
+}
 
 // ================= DESCRIZIONE =================
 const DESCRIPTION = `
@@ -58,66 +83,45 @@ Permette di guidare autovetture e veicoli leggeri.
 
 🅲 Patente C-D
 Permette di guidare camion, pullman o autobus.
-
-━━━━━━━━━━━━━━━━━━
-📝Condizioni richieste
-
-• Essere un cittadino registrato e approvato all’interno del server
-• Avere un comportamento civile e rispettoso delle regole RP
-• Non essere soggetto a sospensioni o provvedimenti attivi
-• Dimostrare una conoscenza adeguata delle norme di circolazione
-
-━━━━━━━━━━━━━━━━━━
-⚠️ Il mancato rispetto comporterà il rifiuto automatico della richiesta.
 `;
 
 // ================= DOMANDE =================
 const QUESTIONS = {
-A: [
-"Casco obbligatorio in moto?",
-"Fari accesi anche di giorno?",
-"Rallentare in curva?",
-"Guanti obbligatori?",
-"Frenata su bagnato aumenta?"
-],
-B: [
-"Cintura sempre obbligatoria?",
-"Limite urbano 50 km/h?",
-"Sorpasso con linea continua?",
-"Serve distanza di sicurezza?",
-"Specchietti obbligatori?"
-],
-CD: [
-"Limite camion in città?",
-"Cosa fai al rosso?",
-"Precedenza incroci?",
-"Quando usi anabbaglianti?",
-"Ambulanza come comportarsi?"
-]
+A: ["Casco obbligatorio in moto?","Fari accesi anche di giorno?","Rallentare in curva?","Guanti obbligatori?","Frenata su bagnato aumenta?"],
+B: ["Cintura sempre obbligatoria?","Limite urbano 50 km/h?","Sorpasso con linea continua?","Serve distanza di sicurezza?","Specchietti obbligatori?"],
+CD: ["Limite camion in città?","Cosa fai al rosso?","Precedenza incroci?","Quando usi anabbaglianti?","Ambulanza come comportarsi?"]
 };
 
 // ================= READY =================
 client.once("ready", async () => {
-const ch = await client.channels.fetch(CANALE_RICHIESTE);
+for (const server of Object.values(SERVERS)) {
 
-const embed = new EmbedBuilder()
-.setColor("#0B1F3A")
-.setDescription(DESCRIPTION);
+  const ch = await client.channels.fetch(server.CANALE_RICHIESTE).catch(() => null);
+  if (!ch) continue;
 
-const row = new ActionRowBuilder().addComponents(
-new ButtonBuilder()
-.setCustomId("start")
-.setLabel("INIZIA PATENTE")
-.setStyle(ButtonStyle.Primary)
-);
+  const embed = new EmbedBuilder()
+    .setColor("#0B1F3A")
+    .setDescription(DESCRIPTION);
 
-await ch.send({ embeds: [embed], components: [row] });
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("start")
+      .setLabel("INIZIA PATENTE")
+      .setStyle(ButtonStyle.Primary)
+  );
+
+  await ch.send({ embeds: [embed], components: [row] });
+}
 });
 
-// ================= START =================
+// ================= INTERACTIONS =================
 client.on("interactionCreate", async (interaction) => {
 try {
 
+const server = getServer(interaction.guild.id);
+if (!server) return;
+
+// ================= START =================
 if (interaction.isButton() && interaction.customId === "start") {
 
   await interaction.deferReply({ flags: 64 });
@@ -129,18 +133,9 @@ if (interaction.isButton() && interaction.customId === "start") {
       .setCustomId("select")
       .setPlaceholder("Seleziona patente")
       .addOptions([
-        {
-          label: member.roles.cache.has(RUOLI.A) ? "A (GIÀ POSSEDUTA)" : "Patente A",
-          value: "A"
-        },
-        {
-          label: member.roles.cache.has(RUOLI.B) ? "B (GIÀ POSSEDUTA)" : "Patente B",
-          value: "B"
-        },
-        {
-          label: member.roles.cache.has(RUOLI.CD) ? "C-D (GIÀ POSSEDUTA)" : "Patente C-D",
-          value: "CD"
-        }
+        { label: member.roles.cache.has(server.RUOLI.A) ? "A (GIÀ POSSEDUTA)" : "Patente A", value: "A" },
+        { label: member.roles.cache.has(server.RUOLI.B) ? "B (GIÀ POSSEDUTA)" : "Patente B", value: "B" },
+        { label: member.roles.cache.has(server.RUOLI.CD) ? "C-D (GIÀ POSSEDUTA)" : "Patente C-D", value: "CD" }
       ])
   );
 
@@ -150,14 +145,12 @@ if (interaction.isButton() && interaction.customId === "start") {
   });
 }
 
+// ================= SELECT =================
 if (interaction.isStringSelectMenu()) {
   const type = interaction.values[0];
 
-  if (interaction.member.roles.cache.has(RUOLI[type])) {
-    return interaction.reply({
-      content: "❌ Hai già questa patente",
-      flags: 64
-    });
+  if (interaction.member.roles.cache.has(server.RUOLI[type])) {
+    return interaction.reply({ content: "❌ Hai già questa patente", flags: 64 });
   }
 
   userData.set(interaction.user.id, { type });
@@ -183,6 +176,7 @@ if (interaction.isStringSelectMenu()) {
   return interaction.showModal(modal);
 }
 
+// ================= QUIZ =================
 if (interaction.isModalSubmit() && interaction.customId === "quiz") {
   const data = userData.get(interaction.user.id);
   if (!data) return;
@@ -196,7 +190,7 @@ if (interaction.isModalSubmit() && interaction.customId === "quiz") {
   data.waitingPhoto = true;
 
   return interaction.reply({
-    content: `📸 Invia la foto nel canale o forum <#${CANALE_FOTO}>`,
+    content: `📸 Invia la foto nel canale o forum <#${server.CANALE_FOTO}>`,
     flags: 64
   });
 }
@@ -210,12 +204,11 @@ console.log(err);
 client.on("messageCreate", async (msg) => {
 if (msg.author.bot) return;
 
-const isForumThread =
-msg.channel.isThread?.() &&
-msg.channel.parentId === CANALE_FOTO;
+const server = getServer(msg.guild.id);
+if (!server) return;
 
-const isNormalChannel =
-msg.channel.id === CANALE_FOTO;
+const isForumThread = msg.channel.isThread?.() && msg.channel.parentId === server.CANALE_FOTO;
+const isNormalChannel = msg.channel.id === server.CANALE_FOTO;
 
 if (!isForumThread && !isNormalChannel) return;
 
@@ -246,7 +239,7 @@ new ButtonBuilder().setCustomId(`accetta_${id}`).setLabel("ACCETTA").setStyle(Bu
 new ButtonBuilder().setCustomId(`rifiuta_${id}`).setLabel("RIFIUTA").setStyle(ButtonStyle.Danger)
 );
 
-const staffChannel = await client.channels.fetch(CANALE_STAFF);
+const staffChannel = await client.channels.fetch(server.CANALE_STAFF);
 
 const sent = await staffChannel.send({
 embeds: [embed],
@@ -255,8 +248,8 @@ components: [row]
 
 pending.set(id, {
 ...data,
-photo: attachment.url,
-messageId: sent.id
+messageId: sent.id,
+guildId: msg.guild.id
 });
 
 userData.delete(id);
@@ -265,6 +258,9 @@ userData.delete(id);
 // ================= ACCETTA / RIFIUTA =================
 client.on("interactionCreate", async (interaction) => {
 if (!interaction.isButton()) return;
+
+const server = getServer(interaction.guild.id);
+if (!server) return;
 
 const [action, id] = interaction.customId.split("_");
 const req = pending.get(id);
@@ -292,30 +288,32 @@ client.on("interactionCreate", async (interaction) => {
 if (!interaction.isModalSubmit()) return;
 if (!interaction.customId.startsWith("motivo_")) return;
 
+const server = getServer(interaction.guild.id);
+if (!server) return;
+
 const [, action, id] = interaction.customId.split("_");
 const req = pending.get(id);
 if (!req) return;
 
 const reason = interaction.fields.getTextInputValue("reason");
 
-const guild = interaction.guild;
-const member = await guild.members.fetch(id).catch(() => null);
+const member = await interaction.guild.members.fetch(id).catch(() => null);
 
 const status = action === "accetta" ? "ACCETTATA" : "RIFIUTATA";
 
-// 🔥 FIX DEFINITIVO: elimina messaggio staff (sempre funzionante)
+// 🔥 DELETE MODULO STAFF
 try {
-  const channel = await client.channels.fetch(CANALE_STAFF).catch(() => null);
+  const channel = await client.channels.fetch(server.CANALE_STAFF).catch(() => null);
   if (channel) {
     const message = await channel.messages.fetch(req.messageId).catch(() => null);
     if (message) await message.delete().catch(() => null);
   }
 } catch (err) {
-  console.log("Errore eliminazione modulo staff:", err);
+  console.log(err);
 }
 
 if (member && action === "accetta") {
-await member.roles.add(RUOLI[req.type]);
+await member.roles.add(server.RUOLI[req.type]);
 }
 
 const user = await client.users.fetch(id);
@@ -326,24 +324,16 @@ new EmbedBuilder()
 .setTitle(`📄 PATENTE ${status}`)
 .setColor(action === "accetta" ? "Green" : "Red")
 .addFields(
-{
-name: "🚗 Patente",
-value: req.type
-},
-{
-name: "📝 Motivo",
-value: reason
-}
+{ name: "🚗 Patente", value: req.type },
+{ name: "📝 Motivo", value: reason }
 )
 ]
 }).catch(() => {});
 
 pending.delete(id);
 
-if (!interaction.replied && !interaction.deferred) {
+if (!interaction.replied) {
 await interaction.reply({ content: "✔ Completato", flags: 64 });
-} else {
-await interaction.followUp({ content: "✔ Completato", flags: 64 });
 }
 });
 
