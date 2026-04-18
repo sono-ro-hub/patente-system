@@ -71,7 +71,37 @@ client.once("ready", async () => {
 
   const embed = new EmbedBuilder()
     .setColor("#87CEFA")
-    .setDescription(`• 🏛️ Dipartimento Trasporti — __Sud Italy RP__`);
+    .setDescription(`• 🏛️ Dipartimento Trasporti — __Sud Italy RP__
+
+Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
+
+━━━━━━━━━━━━━━━━━━
+📋 Tipi di patente
+__🅰️ Patente A__
+Consente la guida di motocicli e veicoli a due ruote.
+
+__🅱️ Patente B__
+Permette la guida di autovetture e veicoli leggeri.
+
+__🅲 Patente C-D__
+Permette la guida di camion, pullman e autobus.
+
+━━━━━━━━━━━━━━━━━━
+📝 Condizioni richieste
+• Cittadinanza valida nel server  
+• Comportamento civile e rispettoso  
+• Nessuna sospensione attiva  
+• Conoscenza base codice stradale  
+
+━━━━━━━━━━━━━━━━━━
+⚠️ Il mancato rispetto comporta rifiuto automatico.
+
+📄 INFORMAZIONI PATENTE
+1) Svolgere il quiz  
+2) Pagare 3k in game  
+3) Inviare foto pagamento nel canale dedicato  
+4) Attendere validazione staff
+`);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -83,12 +113,11 @@ client.once("ready", async () => {
   await ch.send({ embeds: [embed], components: [row] });
 });
 
-// ================= INTERACTION =================
+// ================= START =================
 client.on("interactionCreate", async interaction => {
 
 try {
 
-  // ================= START =================
   if (interaction.isButton() && interaction.customId === "start") {
 
     const menu = new ActionRowBuilder().addComponents(
@@ -186,7 +215,6 @@ try {
   const res = await fetch(attachment.url);
   const buffer = Buffer.from(await res.arrayBuffer());
 
-  // 🔥 ID UNICO PER EVITARE BUG
   const requestId = msg.author.id + "-" + Date.now();
 
   pending.set(requestId, {
@@ -199,17 +227,25 @@ try {
   userData.delete(msg.author.id);
 
   const qa = data.answers.map((a,i)=>
-    `**${QUESTIONS[data.type][i]}**\n${a}`
-  ).join("\n\n");
+    `**${QUESTIONS[data.type][i]}** → ${a}`
+  ).join("\n");
 
   const embed = new EmbedBuilder()
     .setTitle("📄 NUOVA RICHIESTA PATENTE")
     .setDescription(`<@${msg.author.id}>`)
-    .addFields(
-      { name:"🚗 Patente", value:data.type },
-      { name:"📋 Quiz", value: qa.slice(0,1024) },
-      { name:"📸 Stato", value:"Foto ricevuta ✔" }
-    )
+    .addFields({
+      name: "📊 DATI RICHIESTA (UNICA TABELLA)",
+      value:
+`👤 Utente: <@${msg.author.id}>
+🚗 Patente: ${data.type}
+
+📋 Quiz:
+${qa}
+
+📸 Stato: Foto ricevuta
+
+🆔 ID: ${requestId}`
+    })
     .setImage("attachment://pagamento.png");
 
   const row = new ActionRowBuilder().addComponents(
@@ -256,7 +292,7 @@ try {
 
   if (!req) {
     return interaction.reply({
-      content: "❌ Richiesta non trovata o già processata.",
+      content: "❌ Richiesta non trovata.",
       flags: 64
     });
   }
@@ -282,7 +318,7 @@ try {
 }
 });
 
-// ================= MOTIVO FINAL =================
+// ================= FINAL =================
 client.on("interactionCreate", async interaction => {
 
 try {
@@ -304,12 +340,15 @@ try {
   const embed = new EmbedBuilder()
     .setTitle(`📄 PATENTE ${decision}`)
     .setColor(decision === "APPROVATA" ? "Green" : "Red")
-    .addFields(
-      { name:"👤 Utente", value:`<@${req.userId}>` },
-      { name:"🚗 Patente", value:req.type },
-      { name:"📝 Motivo", value:reason },
-      { name:"👮 Staff", value:`<@${interaction.user.id}>` }
-    )
+    .addFields({
+      name: "📊 RIEPILOGO COMPLETO",
+      value:
+`👤 Utente: <@${req.userId}>
+🚗 Patente: ${req.type}
+
+📝 Motivo: ${reason}
+👮 Staff: <@${interaction.user.id}>`
+    })
     .setImage("attachment://pagamento.png");
 
   const staff = await client.channels.fetch(CANALE_STAFF);
