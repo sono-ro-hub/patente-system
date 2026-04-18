@@ -34,6 +34,9 @@ const RUOLI = {
 const userData = new Map();
 const pending = new Map();
 
+// ====== STORE MESSAGE PER UPDATE ======
+let staffMessages = new Map();
+
 require("http").createServer((req,res)=>res.end("OK"))
 .listen(process.env.PORT || 3000);
 
@@ -71,37 +74,7 @@ client.once("ready", async () => {
 
   const embed = new EmbedBuilder()
     .setColor("#87CEFA")
-    .setDescription(`• 🏛️ Dipartimento Trasporti — __Sud Italy RP__
-
-Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
-
-━━━━━━━━━━━━━━━━━━
-📋 Tipi di patente
-__🅰️ Patente A__
-Consente la guida di motocicli e veicoli a due ruote.
-
-__🅱️ Patente B__
-Permette la guida di autovetture e veicoli leggeri.
-
-__🅲 Patente C-D__
-Permette la guida di camion, pullman e autobus.
-
-━━━━━━━━━━━━━━━━━━
-📝 Condizioni richieste
-• Cittadinanza valida nel server  
-• Comportamento civile e rispettoso  
-• Nessuna sospensione attiva  
-• Conoscenza base codice stradale  
-
-━━━━━━━━━━━━━━━━━━
-⚠️ Il mancato rispetto comporta rifiuto automatico.
-
-📄 INFORMAZIONI PATENTE
-1) Svolgere il quiz  
-2) Pagare 3k in game  
-3) Inviare foto pagamento nel canale dedicato  
-4) Attendere validazione staff
-`);
+    .setDescription(`• 🏛️ Dipartimento Trasporti — __Sud Italy RP__`);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -113,7 +86,7 @@ Permette la guida di camion, pullman e autobus.
   await ch.send({ embeds: [embed], components: [row] });
 });
 
-// ================= START =================
+// ================= SELECT =================
 client.on("interactionCreate", async interaction => {
 
 try {
@@ -138,10 +111,10 @@ try {
     });
   }
 
-  // ================= SELECT =================
   if (interaction.isStringSelectMenu()) {
 
     const type = interaction.values[0];
+
     const member = interaction.member;
 
     if (member.roles.cache.has(RUOLI[type])) {
@@ -175,7 +148,6 @@ try {
     return interaction.showModal(modal);
   }
 
-  // ================= QUIZ =================
   if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
     const data = userData.get(interaction.user.id);
@@ -221,32 +193,31 @@ try {
     userId: msg.author.id,
     type: data.type,
     answers: data.answers,
-    photo: buffer
+    photo: buffer,
+    staffMessageId: null
   });
 
   userData.delete(msg.author.id);
 
   const qa = data.answers.map((a,i)=>
-    `**${QUESTIONS[data.type][i]}** → ${a}`
-  ).join("\n");
+`**${QUESTIONS[data.type][i]}**
+${a}`
+  ).join("\n\n");
 
   const embed = new EmbedBuilder()
     .setTitle("📄 NUOVA RICHIESTA PATENTE")
     .setDescription(`<@${msg.author.id}>`)
     .addFields({
-      name: "📊 DATI RICHIESTA (UNICA TABELLA)",
+      name: "📊 RICHIESTA",
       value:
 `👤 Utente: <@${msg.author.id}>
 🚗 Patente: ${data.type}
 
-📋 Quiz:
+📋 Domande e Risposte:
 ${qa}
 
-📸 Stato: Foto ricevuta
-
-🆔 ID: ${requestId}`
-    })
-    .setImage("attachment://pagamento.png");
+📸 Stato: Foto ricevuta`
+    });
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -262,18 +233,20 @@ ${qa}
 
   const staff = await client.channels.fetch(CANALE_STAFF);
 
-  await staff.send({
+  const sent = await staff.send({
     embeds: [embed],
     components: [row],
     files: [{ attachment: buffer, name: "pagamento.png" }]
   });
+
+  pending.get(requestId).staffMessageId = sent.id;
 
 } catch (err) {
   console.log(err);
 }
 });
 
-// ================= STAFF =================
+// ================= STAFF UPDATE (UNICA TABELLA) =================
 client.on("interactionCreate", async interaction => {
 
 try {
@@ -289,7 +262,6 @@ try {
   const id = interaction.customId.replace(`${action}_`, "");
 
   const req = pending.get(id);
-
   if (!req) {
     return interaction.reply({
       content: "❌ Richiesta non trovata.",
@@ -318,7 +290,7 @@ try {
 }
 });
 
-// ================= FINAL =================
+// ================= FINAL STAFF EMBED UPDATE =================
 client.on("interactionCreate", async interaction => {
 
 try {
@@ -337,19 +309,30 @@ try {
 
   const decision = action === "accetta" ? "APPROVATA" : "RIFIUTATA";
 
+  const now = new Date().toLocaleString("it-IT", {
+    timeZone: "Europe/Rome"
+  });
+
+  const qa = req.answers.map((a,i)=>
+`**${QUESTIONS[req.type][i]}**
+${a}`
+  ).join("\n\n");
+
   const embed = new EmbedBuilder()
     .setTitle(`📄 PATENTE ${decision}`)
     .setColor(decision === "APPROVATA" ? "Green" : "Red")
     .addFields({
-      name: "📊 RIEPILOGO COMPLETO",
+      name: `Sud Italia | ${now}`,
       value:
 `👤 Utente: <@${req.userId}>
 🚗 Patente: ${req.type}
 
-📝 Motivo: ${reason}
-👮 Staff: <@${interaction.user.id}>`
-    })
-    .setImage("attachment://pagamento.png");
+📋 Domande e Risposte:
+${qa}
+
+👮 Staff: <@${interaction.user.id}>
+📝 Motivo: ${reason}`
+    });
 
   const staff = await client.channels.fetch(CANALE_STAFF);
 
