@@ -84,30 +84,22 @@ __🅱️ Patente B__
 Permette di guidare __autovetture__ e veicoli leggeri.
 
 __🅲 Patente C-D__
-Permette di far guidare __camion__, __pullman__ o __autobus__, utili per il trasporto delle merci e delle persone.
+Permette di far guidare __camion__, __pullman__ o __autobus__.
 
 ━━━━━━━━━━━━━━━━━━
 __📝Condizioni richieste__
 
-• Essere un __cittadino__ registrato e approvato all’interno del server  
-• Avere un __comportamento civile__ e rispettoso delle regole RP  
-• Non essere __soggetto__ a __sospensioni__ o provvedimenti attivi  
-• Dimostrare una __conoscenza adeguata__ delle norme di circolazione
+• Essere un __cittadino__ registrato  
+• Comportamento civile  
+• Nessuna sospensione attiva  
+• Conoscenza norme di circolazione
 
 ━━━━━━━━━━━━━━━━━━
-⚠️ Il mancato rispetto dei requisiti comporterà il rifiuto automatico della richiesta.
+⚠️ Rifiuto automatico se non rispetti i requisiti
 
-**📄INFORMAZIONI PATENTE📄**
-__**INFORMAZIONI PATENTE**__
-
-***Ecco alcuni step per fare la patente in maniera corretta***
-
-**1) Inviare il quiz per la patente che volete fare e attendere che lo staff member lo corregga***
-
-**2) Inviare 3k in game all'id Lessimanuardi123 e inviare la foto su PAGAMENTI PATENTE e attendere che lo staff member applichi la tipologia di patente desiderata***
-
-**3) Invitiamo tutti a fare la patente per viaggiare in maniera sicura e in maniera indipendente, Il consiglio che possiamo è quando vi ferma un agente delle FDO per una controllo dovete fornire il nome discord e per vedere se avete la tipologia di patente per la quale state usando il veicolo se vi vedranno senza patente dovrete pagare __**1k di multa**__`
-    );
+**📄INFORMAZIONI PATENTE**
+***Segui gli step corretti***
+`);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -141,21 +133,21 @@ try {
     return interaction.reply({
       content: "Seleziona patente:",
       components: [menu],
-      ephemeral: true
+      flags: 64
     });
   }
 
-  // ================= FIX SELECT (NO ERROR INTERACTION) =================
+  // ================= SELECT FIX (NO UNKNOWN INTERACTION) =================
   if (interaction.isStringSelectMenu()) {
 
     const type = interaction.values[0];
 
-    const member = await interaction.guild.members.fetch(interaction.user.id);
+    const member = interaction.member; // FIX: NO FETCH LENTO
 
     if (member.roles.cache.has(RUOLI[type])) {
       return interaction.reply({
         content: "❌ Hai già questa patente e non puoi rifarla.",
-        ephemeral: true
+        flags: 64
       });
     }
 
@@ -197,7 +189,7 @@ try {
 
     return interaction.reply({
       content: `📸 Vai nel canale <#${CANALE_FOTO}> e carica la foto del pagamento.`,
-      ephemeral: true
+      flags: 64
     });
   }
 
@@ -227,7 +219,7 @@ try {
     }
   }
 
-  // ================= FINAL EMBED =================
+  // ================= FINAL STAFF EMBED =================
   if (
     interaction.isModalSubmit() &&
     interaction.customId.startsWith("motivo_")
@@ -280,7 +272,7 @@ try {
 
     return interaction.reply({
       content: "✔ Fatto",
-      ephemeral: true
+      flags: 64
     });
   }
 
