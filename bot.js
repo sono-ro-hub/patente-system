@@ -71,37 +71,10 @@ client.once("ready", async () => {
 
   const embed = new EmbedBuilder()
     .setColor("#87CEFA")
-    .setDescription(`• 🏛️ Dipartimento Trasporti — __Sud Italy RP__
+    .setDescription(`🏛️ Dipartimento Trasporti — Sud Italy RP
 
-Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
-
-━━━━━━━━━━━━━━━━━━
-📋 Tipi di patente
-__🅰️ Patente A__
-Consente la guida di motocicli e veicoli a due ruote.
-
-__🅱️ Patente B__
-Permette la guida di autovetture e veicoli leggeri.
-
-__🅲 Patente C-D__
-Permette la guida di camion, pullman e autobus.
-
-━━━━━━━━━━━━━━━━━━
-📝 Condizioni richieste
-• cittadinanza valida  
-• comportamento RP corretto  
-• nessuna sospensione attiva  
-• conoscenza codice stradale  
-
-━━━━━━━━━━━━━━━━━━
-⚠️ Il mancato rispetto comporta rifiuto automatico.
-
-📄 INFORMAZIONI PATENTE
-1) Svolgere quiz  
-2) Pagare 3k  
-3) Inviare foto pagamento  
-4) Attendere staff
-`);
+📌 Sistema Patenti Attivo
+Clicca il bottone per iniziare il modulo.`);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -110,7 +83,10 @@ Permette la guida di camion, pullman e autobus.
       .setStyle(ButtonStyle.Primary)
   );
 
-  await ch.send({ embeds: [embed], components: [row] });
+  await ch.send({
+    embeds: [embed],
+    components: [row]
+  });
 });
 
 // ================= START =================
@@ -119,6 +95,19 @@ client.on("interactionCreate", async interaction => {
 try {
 
   if (interaction.isButton() && interaction.customId === "start") {
+
+    const typeCheck = interaction.member.roles.cache;
+
+    if (
+      typeCheck.has(RUOLI.A) ||
+      typeCheck.has(RUOLI.B) ||
+      typeCheck.has(RUOLI.CD)
+    ) {
+      return interaction.reply({
+        content: "❌ Hai già una patente attiva.",
+        flags: 64
+      });
+    }
 
     const menu = new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
@@ -141,14 +130,6 @@ try {
   if (interaction.isStringSelectMenu()) {
 
     const type = interaction.values[0];
-
-    const member = interaction.member;
-    if (member.roles.cache.has(RUOLI[type])) {
-      return interaction.reply({
-        content: "❌ Hai già questa patente.",
-        flags: 64
-      });
-    }
 
     userData.set(interaction.user.id, {
       type,
@@ -213,7 +194,7 @@ try {
   const res = await fetch(attachment.url);
   const buffer = Buffer.from(await res.arrayBuffer());
 
-  const id = msg.author.id + "-" + Date.now();
+  const id = msg.author.id + Date.now();
 
   pending.set(id, {
     userId: msg.author.id,
@@ -225,8 +206,8 @@ try {
   userData.delete(msg.author.id);
 
   const qa = data.answers.map((a,i)=>
-`**${QUESTIONS[data.type][i]}**
-${a}`
+`• ${QUESTIONS[data.type][i]}
+➜ ${a}`
   ).join("\n\n");
 
   const embed = new EmbedBuilder()
@@ -240,7 +221,7 @@ ${a}`
 📋 DOMANDE E RISPOSTE:
 ${qa}
 
-📸 Stato: ricevuta`
+📸 Stato: foto ricevuta`
     });
 
   const row = new ActionRowBuilder().addComponents(
@@ -273,7 +254,7 @@ ${qa}
 }
 });
 
-// ================= STAFF FINAL =================
+// ================= STAFF =================
 client.on("interactionCreate", async interaction => {
 
 try {
@@ -312,7 +293,7 @@ try {
 }
 });
 
-// ================= FINAL UPDATE =================
+// ================= FINAL DOCS =================
 client.on("interactionCreate", async interaction => {
 
 try {
@@ -344,30 +325,15 @@ ${a}`
     .setTitle(`📄 PATENTE ${decision}`)
     .setColor(decision === "APPROVATA" ? "Green" : "Red")
     .addFields(
-      {
-        name: "👤 UTENTE",
-        value: `<@${req.userId}>`
-      },
-      {
-        name: "🚗 PATENTE",
-        value: req.type
-      },
-      {
-        name: "📋 DOMANDE E RISPOSTE",
-        value: qa
-      },
+      { name: "👤 UTENTE", value: `<@${req.userId}>` },
+      { name: "🚗 PATENTE", value: req.type },
+      { name: "📋 DOMANDE E RISPOSTE", value: qa },
       {
         name: action === "accetta" ? "✅ ACCETTATO DA" : "❌ RIFIUTATO DA",
         value: `<@${interaction.user.id}>`
       },
-      {
-        name: "📝 MOTIVO",
-        value: reason
-      },
-      {
-        name: "━━━━━━━━━━━━━━",
-        value: `Sud Italy | ${now}`
-      }
+      { name: "📝 MOTIVO", value: reason },
+      { name: "━━━━━━━━━━━━━━", value: `📸 ${now}` }
     )
     .setImage("attachment://pagamento.png");
 
