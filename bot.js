@@ -120,21 +120,35 @@ client.on("interactionCreate", async (interaction) => {
 
       const options = [];
 
-      if (!member.roles.cache.has(RUOLI.A))
-        options.push({ label: "Patente A", value: "A" });
+      // 🔒 PATENTE A
+      options.push({
+        label: member.roles.cache.has(RUOLI.A)
+          ? "Patente A (GIÀ POSSEDUTA)"
+          : "Patente A",
+        value: "A",
+        description: "Moto e veicoli a due ruote",
+        disabled: member.roles.cache.has(RUOLI.A)
+      });
 
-      if (!member.roles.cache.has(RUOLI.B))
-        options.push({ label: "Patente B", value: "B" });
+      // 🔒 PATENTE B
+      options.push({
+        label: member.roles.cache.has(RUOLI.B)
+          ? "Patente B (GIÀ POSSEDUTA)"
+          : "Patente B",
+        value: "B",
+        description: "Auto e veicoli leggeri",
+        disabled: member.roles.cache.has(RUOLI.B)
+      });
 
-      if (!member.roles.cache.has(RUOLI.CD))
-        options.push({ label: "Patente C-D", value: "CD" });
-
-      if (options.length === 0) {
-        return interaction.reply({
-          content: "❌ Hai già tutte le patenti.",
-          ephemeral: true
-        });
-      }
+      // 🔒 PATENTE CD
+      options.push({
+        label: member.roles.cache.has(RUOLI.CD)
+          ? "Patente C-D (GIÀ POSSEDUTA)"
+          : "Patente C-D",
+        value: "CD",
+        description: "Camion e autobus",
+        disabled: member.roles.cache.has(RUOLI.CD)
+      });
 
       const menu = new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
@@ -150,7 +164,7 @@ client.on("interactionCreate", async (interaction) => {
       });
     }
 
-    // ================= SELECT (FIX DEFINITIVO) =================
+    // ================= SELECT =================
     if (
       interaction.isStringSelectMenu() &&
       interaction.customId === "select"
@@ -158,9 +172,10 @@ client.on("interactionCreate", async (interaction) => {
 
       const type = interaction.values[0];
 
+      // 🔒 SICUREZZA
       if (!QUESTIONS[type]) {
         return interaction.reply({
-          content: "❌ Patente non valida",
+          content: "❌ Patente non valida o già posseduta",
           ephemeral: true
         });
       }
@@ -235,7 +250,7 @@ client.on("interactionCreate", async (interaction) => {
       });
     }
 
-    // ================= BOTTONI STAFF =================
+    // ================= STAFF =================
     if (interaction.isButton()) {
 
       const [action, userId] = interaction.customId.split("_");
@@ -277,7 +292,6 @@ client.on("interactionCreate", async (interaction) => {
 
       const decision = action === "accetta" ? "APPROVATA" : "RIFIUTATA";
 
-      // STAFF LOG
       const staffEmbed = new EmbedBuilder()
         .setTitle(`📄 PATENTE ${decision}`)
         .setColor(decision === "APPROVATA" ? "Green" : "Red")
@@ -291,23 +305,19 @@ client.on("interactionCreate", async (interaction) => {
       const staff = await client.channels.fetch(CANALE_STAFF);
       await staff.send({ embeds: [staffEmbed] });
 
-      // RUOLO
       if (member && action === "accetta") {
         await member.roles.add(RUOLI[req.type]);
       }
 
-      // DM UTENTE
-      const userEmbed = new EmbedBuilder()
-        .setTitle(`📄 Patente ${decision}`)
-        .setColor(decision === "APPROVATA" ? "Green" : "Red")
-        .setDescription(`La tua richiesta è stata **${decision}**`)
-        .addFields(
-          { name: "🚗 Patente", value: req.type },
-          { name: "📝 Motivo", value: reason }
-        );
-
       const user = await client.users.fetch(userId);
-      await user.send({ embeds: [userEmbed] }).catch(() => {});
+      await user.send({
+        embeds: [
+          new EmbedBuilder()
+            .setTitle(`📄 Patente ${decision}`)
+            .setColor(decision === "APPROVATA" ? "Green" : "Red")
+            .setDescription(`La tua richiesta è stata **${decision}**`)
+        ]
+      }).catch(() => {});
 
       pending.delete(userId);
 
