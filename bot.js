@@ -11,6 +11,20 @@ const {
   TextInputStyle
 } = require("discord.js");
 
+// ================= EXPRESS FIX (RENDER WEB SERVICE) =================
+const express = require("express");
+const app = express();
+
+app.get("/", (req, res) => {
+  res.send("Bot online ✔");
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log("Server attivo su porta", PORT);
+});
+
+// ================= BOT =================
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -59,12 +73,14 @@ const QUESTIONS = {
 // ================= READY =================
 client.once("ready", async () => {
 
+  console.log("BOT ONLINE ✔");
+
   const ch = await client.channels.fetch(CANALE_RICHIESTE);
 
   const embed = new EmbedBuilder()
-    .setColor("Blue")
+    .setColor("#0B1F3A")
     .setTitle("🏛️ Dipartimento Trasporti")
-    .setDescription("Clicca sotto per iniziare la patente.");
+    .setDescription("Clicca per iniziare la patente.");
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -81,7 +97,7 @@ client.on("interactionCreate", async (interaction) => {
 
   try {
 
-    // ================= BUTTON =================
+    // ================= START =================
     if (interaction.isButton() && interaction.customId === "start") {
 
       const menu = new ActionRowBuilder().addComponents(
@@ -115,17 +131,21 @@ client.on("interactionCreate", async (interaction) => {
         .setCustomId("quiz")
         .setTitle("Quiz Patente");
 
+      const rows = [];
+
       for (let i = 0; i < 5; i++) {
-        modal.addComponents(
+        rows.push(
           new ActionRowBuilder().addComponents(
             new TextInputBuilder()
               .setCustomId(`q${i}`)
-              .setLabel(q[i])
+              .setLabel(q[i].slice(0, 45))
               .setStyle(TextInputStyle.Short)
               .setRequired(true)
           )
         );
       }
+
+      modal.addComponents(rows);
 
       return interaction.showModal(modal);
     }
@@ -143,7 +163,7 @@ client.on("interactionCreate", async (interaction) => {
       }
 
       return interaction.reply({
-        content: `✔ Quiz completato per patente **${data.type}**`,
+        content: `✔ Hai completato il quiz per la patente **${data.type}**`,
         ephemeral: true
       });
     }
