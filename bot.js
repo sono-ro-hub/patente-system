@@ -62,6 +62,18 @@ CD:[
 ]
 };
 
+// ================= SAFE REPLY =================
+const safeReply = async (interaction, data) => {
+  try {
+    if (interaction.replied || interaction.deferred) {
+      return await interaction.followUp(data);
+    }
+    return await interaction.reply(data);
+  } catch (e) {
+    console.log("reply error:", e);
+  }
+};
+
 // ================= READY =================
 client.once("ready", async () => {
 
@@ -71,10 +83,42 @@ client.once("ready", async () => {
 
   const embed = new EmbedBuilder()
     .setColor("#87CEFA")
-    .setDescription(`🏛️ Dipartimento Trasporti — Sud Italy RP
+    .setDescription(`•  🏛️ Dipartimento Trasporti — __Sud Italy RP__
 
-📌 Sistema Patenti Attivo
-Clicca il bottone per iniziare il modulo.`);
+Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
+
+━━━━━━━━━━━━━━━━━━
+📋Tipi di patente
+__🅰️ Patente A__
+Consente la guida di __motocicli__ e veicoli a due ruote.
+
+__🅱️ Patente B__
+Permette di guidare __autovetture__ e veicoli leggeri.
+
+__🅲 Patente C-D__
+Permette di far guidare __camion__, __pullman__ o __autobus__, utili per il trasporto delle merci e delle persone.
+
+━━━━━━━━━━━━━━━━━━
+__📝Condizioni richieste__
+
+• Essere un __cittadino__ registrato e approvato all’interno del server  
+• Avere un __comportamento civile__ e rispettoso delle regole RP  
+• Non essere __soggetto__ a __sospensioni__ o provvedimenti attivi  
+• Dimostrare una __conoscenza adeguata__ delle norme di circolazione
+
+━━━━━━━━━━━━━━━━━━
+⚠️ Il mancato rispetto dei requisiti comporterà il rifiuto automatico della richiesta.
+
+**📄INFORMAZIONI PATENTE📄**
+__**INFORMAZIONI PATENTE**__
+
+***Ecco alcuni step per fare la patente in maniera corretta***
+
+**1) Inviare il quiz per la patente che volete fare e attendere che lo staff member lo corregga***
+
+**2) Inviare 3k in game all'id Lessimanuardi123 e inviare la foto su PAGAMENTI PATENTE e attendere che lo staff member applichi la tipologia di patente desiderata***
+
+**3) Invitiamo tutti a fare la patente per viaggiare in maniera sicura e in maniera indipendente, Il consiglio che possiamo è quando vi ferma un agente delle FDO per una controllo dovete fornire il nome discord e per vedere se avete la tipologia di patente per la quale state usando il veicolo se vi vedranno senza patente dovrete pagare __**1k di multa**__`);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -83,27 +127,27 @@ Clicca il bottone per iniziare il modulo.`);
       .setStyle(ButtonStyle.Primary)
   );
 
-  await ch.send({
-    embeds: [embed],
-    components: [row]
-  });
+  await ch.send({ embeds: [embed], components: [row] });
 });
 
-// ================= START =================
+// ================= INTERACTION FIX (NO CRASH) =================
 client.on("interactionCreate", async interaction => {
 
 try {
 
+  if (!interaction.isRepliable()) return;
+
+  // ================= START =================
   if (interaction.isButton() && interaction.customId === "start") {
 
-    const typeCheck = interaction.member.roles.cache;
+    const member = interaction.member;
 
     if (
-      typeCheck.has(RUOLI.A) ||
-      typeCheck.has(RUOLI.B) ||
-      typeCheck.has(RUOLI.CD)
+      member.roles.cache.has(RUOLI.A) ||
+      member.roles.cache.has(RUOLI.B) ||
+      member.roles.cache.has(RUOLI.CD)
     ) {
-      return interaction.reply({
+      return safeReply(interaction, {
         content: "❌ Hai già una patente attiva.",
         flags: 64
       });
@@ -120,13 +164,14 @@ try {
         ])
     );
 
-    return interaction.reply({
+    return safeReply(interaction, {
       content: "Seleziona patente:",
       components: [menu],
       flags: 64
     });
   }
 
+  // ================= SELECT =================
   if (interaction.isStringSelectMenu()) {
 
     const type = interaction.values[0];
@@ -155,6 +200,7 @@ try {
     return interaction.showModal(modal);
   }
 
+  // ================= QUIZ =================
   if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
     const data = userData.get(interaction.user.id);
@@ -166,7 +212,7 @@ try {
 
     data.waitingPhoto = true;
 
-    return interaction.reply({
+    return safeReply(interaction, {
       content: `📸 Invia la foto nel canale <#${CANALE_FOTO}>`,
       flags: 64
     });
