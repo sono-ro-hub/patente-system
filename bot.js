@@ -363,6 +363,10 @@ ${a}`
       {
         name: "📝 MOTIVO",
         value: reason
+      },
+      {
+        name: "━━━━━━━━━━━━━━",
+        value: `Sud Italy | ${now}`
       }
     )
     .setImage("attachment://pagamento.png");
