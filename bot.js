@@ -96,29 +96,18 @@ __🅱️ Patente B__
 Permette di guidare __autovetture__ e veicoli leggeri.
 
 __🅲 Patente C-D__
-Permette di far guidare __camion__, __pullman__ o __autobus__, utili per il trasporto delle merci e delle persone.
+Permette di far guidare __camion__, __pullman__ o __autobus__.
 
 ━━━━━━━━━━━━━━━━━━
 __📝Condizioni richieste__
 
-• Essere un __cittadino__ registrato e approvato all’interno del server  
-• Avere un __comportamento civile__ e rispettoso delle regole RP  
-• Non essere __soggetto__ a __sospensioni__ o provvedimenti attivi  
-• Dimostrare una __conoscenza adeguata__ delle norme di circolazione
+• Essere un __cittadino__ registrato  
+• Avere un __comportamento civile__  
+• Non essere __sospeso__  
+• Conoscere le norme
 
 ━━━━━━━━━━━━━━━━━━
-⚠️ Il mancato rispetto dei requisiti comporterà il rifiuto automatico della richiesta.
-
-**📄INFORMAZIONI PATENTE📄**
-__**INFORMAZIONI PATENTE**__
-
-***Ecco alcuni step per fare la patente in maniera corretta***
-
-**1) Inviare il quiz per la patente che volete fare e attendere che lo staff member lo corregga***
-
-**2) Inviare 3k in game all'id Lessimanuardi123 e inviare la foto su PAGAMENTI PATENTE e attendere che lo staff member applichi la tipologia di patente desiderata***
-
-**3) Invitiamo tutti a fare la patente per viaggiare in maniera sicura e in maniera indipendente, Il consiglio che possiamo è quando vi ferma un agente delle FDO per una controllo dovete fornire il nome discord e per vedere se avete la tipologia di patente per la quale state usando il veicolo se vi vedranno senza patente dovrete pagare __**1k di multa**__`);
+⚠️ Il mancato rispetto comporta rifiuto`);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -130,14 +119,13 @@ __**INFORMAZIONI PATENTE**__
   await ch.send({ embeds: [embed], components: [row] });
 });
 
-// ================= INTERACTION FIX (NO CRASH) =================
+// ================= INTERACTION =================
 client.on("interactionCreate", async interaction => {
 
 try {
 
   if (!interaction.isRepliable()) return;
 
-  // ================= START =================
   if (interaction.isButton() && interaction.customId === "start") {
 
     const member = interaction.member;
@@ -148,7 +136,7 @@ try {
       member.roles.cache.has(RUOLI.CD)
     ) {
       return safeReply(interaction, {
-        content: "❌ Hai già una patente attiva.",
+        content: "❌ Hai già una patente.",
         flags: 64
       });
     }
@@ -171,7 +159,6 @@ try {
     });
   }
 
-  // ================= SELECT =================
   if (interaction.isStringSelectMenu()) {
 
     const type = interaction.values[0];
@@ -200,7 +187,6 @@ try {
     return interaction.showModal(modal);
   }
 
-  // ================= QUIZ =================
   if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
     const data = userData.get(interaction.user.id);
@@ -237,16 +223,13 @@ try {
   const attachment = msg.attachments.first();
   if (!attachment) return;
 
-  const res = await fetch(attachment.url);
-  const buffer = Buffer.from(await res.arrayBuffer());
-
   const id = msg.author.id + Date.now();
 
   pending.set(id, {
     userId: msg.author.id,
     type: data.type,
     answers: data.answers,
-    photo: buffer
+    photo: attachment.url
   });
 
   userData.delete(msg.author.id);
@@ -268,7 +251,8 @@ try {
 ${qa}
 
 📸 Stato: foto ricevuta`
-    });
+    })
+    .setImage(attachment.url);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -286,13 +270,7 @@ ${qa}
 
   await staff.send({
     embeds: [embed],
-    components: [row],
-    files: [
-      {
-        attachment: buffer,
-        name: "pagamento.png"
-      }
-    ]
+    components: [row]
   });
 
 } catch (err) {
@@ -320,13 +298,13 @@ try {
 
   const modal = new ModalBuilder()
     .setCustomId(`motivo_${action}_${id}`)
-    .setTitle("Motivo obbligatorio");
+    .setTitle("Motivo");
 
   modal.addComponents(
     new ActionRowBuilder().addComponents(
       new TextInputBuilder()
         .setCustomId("reason")
-        .setLabel("Scrivi il motivo")
+        .setLabel("Scrivi motivo")
         .setStyle(TextInputStyle.Paragraph)
         .setRequired(true)
     )
@@ -339,7 +317,7 @@ try {
 }
 });
 
-// ================= FINAL DOCS =================
+// ================= FINAL =================
 client.on("interactionCreate", async interaction => {
 
 try {
@@ -354,50 +332,15 @@ try {
 
   const reason = interaction.fields.getTextInputValue("reason");
 
-  const member = await interaction.guild.members.fetch(req.userId).catch(() => null);
-
-  const decision = action === "accetta" ? "APPROVATA" : "RIFIUTATA";
-
-  const now = new Date().toLocaleString("it-IT", {
-    timeZone: "Europe/Rome"
-  });
-
-  const qa = req.answers.map((a,i)=>
-`**${QUESTIONS[req.type][i]}**
-${a}`
-  ).join("\n\n");
-
   const embed = new EmbedBuilder()
-    .setTitle(`📄 PATENTE ${decision}`)
-    .setColor(decision === "APPROVATA" ? "Green" : "Red")
-    .addFields(
-      { name: "👤 UTENTE", value: `<@${req.userId}>` },
-      { name: "🚗 PATENTE", value: req.type },
-      { name: "📋 DOMANDE E RISPOSTE", value: qa },
-      {
-        name: action === "accetta" ? "✅ ACCETTATO DA" : "❌ RIFIUTATO DA",
-        value: `<@${interaction.user.id}>`
-      },
-      { name: "📝 MOTIVO", value: reason },
-      { name: "━━━━━━━━━━━━━━", value: `📸 ${now}` }
-    )
-    .setImage("attachment://pagamento.png");
+    .setTitle(`📄 ${action === "accetta" ? "APPROVATA" : "RIFIUTATA"}`)
+    .setImage(req.photo);
 
   const staff = await client.channels.fetch(CANALE_STAFF);
 
   await staff.send({
-    embeds: [embed],
-    files: [
-      {
-        attachment: req.photo,
-        name: "pagamento.png"
-      }
-    ]
+    embeds: [embed]
   });
-
-  if (member && action === "accetta") {
-    await member.roles.add(RUOLI[req.type]);
-  }
 
   pending.delete(id);
 
