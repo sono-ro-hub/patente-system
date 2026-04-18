@@ -34,9 +34,6 @@ const RUOLI = {
 const userData = new Map();
 const pending = new Map();
 
-// ====== STORE MESSAGE PER UPDATE ======
-let staffMessages = new Map();
-
 require("http").createServer((req,res)=>res.end("OK"))
 .listen(process.env.PORT || 3000);
 
@@ -74,7 +71,37 @@ client.once("ready", async () => {
 
   const embed = new EmbedBuilder()
     .setColor("#87CEFA")
-    .setDescription(`• 🏛️ Dipartimento Trasporti — __Sud Italy RP__`);
+    .setDescription(`• 🏛️ Dipartimento Trasporti — __Sud Italy RP__
+
+Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
+
+━━━━━━━━━━━━━━━━━━
+📋 Tipi di patente
+__🅰️ Patente A__
+Consente la guida di motocicli e veicoli a due ruote.
+
+__🅱️ Patente B__
+Permette la guida di autovetture e veicoli leggeri.
+
+__🅲 Patente C-D__
+Permette la guida di camion, pullman e autobus.
+
+━━━━━━━━━━━━━━━━━━
+📝 Condizioni richieste
+• cittadinanza valida  
+• comportamento RP corretto  
+• nessuna sospensione attiva  
+• conoscenza codice stradale  
+
+━━━━━━━━━━━━━━━━━━
+⚠️ Il mancato rispetto comporta rifiuto automatico.
+
+📄 INFORMAZIONI PATENTE
+1) Svolgere quiz  
+2) Pagare 3k  
+3) Inviare foto pagamento  
+4) Attendere staff
+`);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -86,7 +113,7 @@ client.once("ready", async () => {
   await ch.send({ embeds: [embed], components: [row] });
 });
 
-// ================= SELECT =================
+// ================= START =================
 client.on("interactionCreate", async interaction => {
 
 try {
@@ -105,7 +132,7 @@ try {
     );
 
     return interaction.reply({
-      content: "Seleziona patente:",
+      content: "Sud Italia | Seleziona patente:",
       components: [menu],
       flags: 64
     });
@@ -116,7 +143,6 @@ try {
     const type = interaction.values[0];
 
     const member = interaction.member;
-
     if (member.roles.cache.has(RUOLI[type])) {
       return interaction.reply({
         content: "❌ Hai già questa patente.",
@@ -187,14 +213,13 @@ try {
   const res = await fetch(attachment.url);
   const buffer = Buffer.from(await res.arrayBuffer());
 
-  const requestId = msg.author.id + "-" + Date.now();
+  const id = msg.author.id + "-" + Date.now();
 
-  pending.set(requestId, {
+  pending.set(id, {
     userId: msg.author.id,
     type: data.type,
     answers: data.answers,
-    photo: buffer,
-    staffMessageId: null
+    photo: buffer
   });
 
   userData.delete(msg.author.id);
@@ -206,47 +231,44 @@ ${a}`
 
   const embed = new EmbedBuilder()
     .setTitle("📄 NUOVA RICHIESTA PATENTE")
-    .setDescription(`<@${msg.author.id}>`)
+    .setDescription(`Sud Italia | <@${msg.author.id}>`)
     .addFields({
       name: "📊 RICHIESTA",
       value:
-`👤 Utente: <@${msg.author.id}>
-🚗 Patente: ${data.type}
+`🚗 Patente: ${data.type}
 
-📋 Domande e Risposte:
+📋 DOMANDE E RISPOSTE:
 ${qa}
 
-📸 Stato: Foto ricevuta`
+📸 Stato: ricevuta`
     });
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`accetta_${requestId}`)
+      .setCustomId(`accetta_${id}`)
       .setLabel("ACCETTA")
       .setStyle(ButtonStyle.Success),
 
     new ButtonBuilder()
-      .setCustomId(`rifiuta_${requestId}`)
+      .setCustomId(`rifiuta_${id}`)
       .setLabel("RIFIUTA")
       .setStyle(ButtonStyle.Danger)
   );
 
   const staff = await client.channels.fetch(CANALE_STAFF);
 
-  const sent = await staff.send({
+  await staff.send({
     embeds: [embed],
     components: [row],
     files: [{ attachment: buffer, name: "pagamento.png" }]
   });
-
-  pending.get(requestId).staffMessageId = sent.id;
 
 } catch (err) {
   console.log(err);
 }
 });
 
-// ================= STAFF UPDATE (UNICA TABELLA) =================
+// ================= FINAL STAFF LOG =================
 client.on("interactionCreate", async interaction => {
 
 try {
@@ -262,12 +284,7 @@ try {
   const id = interaction.customId.replace(`${action}_`, "");
 
   const req = pending.get(id);
-  if (!req) {
-    return interaction.reply({
-      content: "❌ Richiesta non trovata.",
-      flags: 64
-    });
-  }
+  if (!req) return;
 
   const modal = new ModalBuilder()
     .setCustomId(`motivo_${action}_${id}`)
@@ -290,7 +307,7 @@ try {
 }
 });
 
-// ================= FINAL STAFF EMBED UPDATE =================
+// ================= FINAL UPDATE =================
 client.on("interactionCreate", async interaction => {
 
 try {
@@ -327,7 +344,7 @@ ${a}`
 `👤 Utente: <@${req.userId}>
 🚗 Patente: ${req.type}
 
-📋 Domande e Risposte:
+📋 DOMANDE E RISPOSTE:
 ${qa}
 
 👮 Staff: <@${interaction.user.id}>
