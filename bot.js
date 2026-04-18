@@ -71,35 +71,7 @@ client.once("ready", async () => {
 
   const embed = new EmbedBuilder()
     .setColor("#87CEFA")
-    .setDescription(`• 🏛️ Dipartimento Trasporti — __Sud Italy RP__
-
-Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
-
-━━━━━━━━━━━━━━━━━━
-📋Tipi di patente
-__🅰️ Patente A__
-Consente la guida di __motocicli__ e veicoli a due ruote.
-
-__🅱️ Patente B__
-Permette di guidare __autovetture__ e veicoli leggeri.
-
-__🅲 Patente C-D__
-Permette di far guidare __camion__, __pullman__ o __autobus__.
-
-━━━━━━━━━━━━━━━━━━
-__📝Condizioni richieste__
-
-• Essere un __cittadino__ registrato  
-• Comportamento civile  
-• Nessuna sospensione attiva  
-• Conoscenza norme di circolazione
-
-━━━━━━━━━━━━━━━━━━
-⚠️ Rifiuto automatico se non rispetti i requisiti
-
-**📄INFORMAZIONI PATENTE**
-***Segui gli step corretti***
-`);
+    .setDescription(`• 🏛️ Dipartimento Trasporti — __Sud Italy RP__`);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -137,16 +109,15 @@ try {
     });
   }
 
-  // ================= SELECT FIX (NO UNKNOWN INTERACTION) =================
+  // ================= SELECT =================
   if (interaction.isStringSelectMenu()) {
 
     const type = interaction.values[0];
-
-    const member = interaction.member; // FIX: NO FETCH LENTO
+    const member = interaction.member;
 
     if (member.roles.cache.has(RUOLI[type])) {
       return interaction.reply({
-        content: "❌ Hai già questa patente e non puoi rifarla.",
+        content: "❌ Hai già questa patente.",
         flags: 64
       });
     }
@@ -188,90 +159,7 @@ try {
     data.waitingPhoto = true;
 
     return interaction.reply({
-      content: `📸 Vai nel canale <#${CANALE_FOTO}> e carica la foto del pagamento.`,
-      flags: 64
-    });
-  }
-
-  // ================= STAFF BUTTON =================
-  if (interaction.isButton()) {
-
-    if (
-      interaction.customId.startsWith("accetta_") ||
-      interaction.customId.startsWith("rifiuta_")
-    ) {
-
-      const modal = new ModalBuilder()
-        .setCustomId(`motivo_${interaction.customId}`)
-        .setTitle("Motivo obbligatorio");
-
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder()
-            .setCustomId("reason")
-            .setLabel("Scrivi il motivo")
-            .setStyle(TextInputStyle.Paragraph)
-            .setRequired(true)
-        )
-      );
-
-      return interaction.showModal(modal);
-    }
-  }
-
-  // ================= FINAL STAFF EMBED =================
-  if (
-    interaction.isModalSubmit() &&
-    interaction.customId.startsWith("motivo_")
-  ) {
-
-    const full = interaction.customId.replace("motivo_", "");
-    const last = full.lastIndexOf("_");
-
-    const action = full.slice(0, last);
-    const id = full.slice(last + 1);
-
-    const req = pending.get(id);
-    if (!req) return;
-
-    const reason = interaction.fields.getTextInputValue("reason");
-
-    const member = await interaction.guild.members.fetch(id).catch(() => null);
-
-    const qa = req.answers.map((a, i) =>
-      `**${QUESTIONS[req.type][i]}**\n${a}`
-    ).join("\n\n");
-
-    const decision = action === "accetta" ? "APPROVATA" : "RIFIUTATA";
-
-    const embed = new EmbedBuilder()
-      .setTitle(`📄 PATENTE ${decision}`)
-      .setColor(decision === "APPROVATA" ? "Green" : "Red")
-      .addFields(
-        { name: "👤 Utente", value: `<@${id}>` },
-        { name: "🚗 Patente", value: req.type, inline: true },
-        { name: "👮 Staff", value: `<@${interaction.user.id}>`, inline: true },
-        { name: "━━━━━━━━━━━━", value: " " },
-        { name: "📋 Quiz", value: qa.slice(0, 1024) },
-        { name: "📝 Motivo", value: reason }
-      )
-      .setImage("attachment://pagamento.png");
-
-    const staff = await client.channels.fetch(CANALE_STAFF);
-
-    await staff.send({
-      embeds: [embed],
-      files: [{ attachment: req.photo, name: "pagamento.png" }]
-    });
-
-    if (member && action === "accetta") {
-      await member.roles.add(RUOLI[req.type]);
-    }
-
-    pending.delete(id);
-
-    return interaction.reply({
-      content: "✔ Fatto",
+      content: `📸 Invia la foto nel canale <#${CANALE_FOTO}>`,
       flags: 64
     });
   }
@@ -298,13 +186,149 @@ try {
   const res = await fetch(attachment.url);
   const buffer = Buffer.from(await res.arrayBuffer());
 
-  pending.set(msg.author.id, {
+  // 🔥 ID UNICO PER EVITARE BUG
+  const requestId = msg.author.id + "-" + Date.now();
+
+  pending.set(requestId, {
+    userId: msg.author.id,
     type: data.type,
     answers: data.answers,
     photo: buffer
   });
 
   userData.delete(msg.author.id);
+
+  const qa = data.answers.map((a,i)=>
+    `**${QUESTIONS[data.type][i]}**\n${a}`
+  ).join("\n\n");
+
+  const embed = new EmbedBuilder()
+    .setTitle("📄 NUOVA RICHIESTA PATENTE")
+    .setDescription(`<@${msg.author.id}>`)
+    .addFields(
+      { name:"🚗 Patente", value:data.type },
+      { name:"📋 Quiz", value: qa.slice(0,1024) },
+      { name:"📸 Stato", value:"Foto ricevuta ✔" }
+    )
+    .setImage("attachment://pagamento.png");
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`accetta_${requestId}`)
+      .setLabel("ACCETTA")
+      .setStyle(ButtonStyle.Success),
+
+    new ButtonBuilder()
+      .setCustomId(`rifiuta_${requestId}`)
+      .setLabel("RIFIUTA")
+      .setStyle(ButtonStyle.Danger)
+  );
+
+  const staff = await client.channels.fetch(CANALE_STAFF);
+
+  await staff.send({
+    embeds: [embed],
+    components: [row],
+    files: [{ attachment: buffer, name: "pagamento.png" }]
+  });
+
+} catch (err) {
+  console.log(err);
+}
+});
+
+// ================= STAFF =================
+client.on("interactionCreate", async interaction => {
+
+try {
+
+  if (!interaction.isButton()) return;
+
+  if (
+    !interaction.customId.startsWith("accetta_") &&
+    !interaction.customId.startsWith("rifiuta_")
+  ) return;
+
+  const action = interaction.customId.split("_")[0];
+  const id = interaction.customId.replace(`${action}_`, "");
+
+  const req = pending.get(id);
+
+  if (!req) {
+    return interaction.reply({
+      content: "❌ Richiesta non trovata o già processata.",
+      flags: 64
+    });
+  }
+
+  const modal = new ModalBuilder()
+    .setCustomId(`motivo_${action}_${id}`)
+    .setTitle("Motivo obbligatorio");
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId("reason")
+        .setLabel("Scrivi il motivo")
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true)
+    )
+  );
+
+  return interaction.showModal(modal);
+
+} catch (err) {
+  console.log(err);
+}
+});
+
+// ================= MOTIVO FINAL =================
+client.on("interactionCreate", async interaction => {
+
+try {
+
+  if (!interaction.isModalSubmit()) return;
+  if (!interaction.customId.startsWith("motivo_")) return;
+
+  const [, action, id] = interaction.customId.split("_");
+
+  const req = pending.get(id);
+  if (!req) return;
+
+  const reason = interaction.fields.getTextInputValue("reason");
+
+  const member = await interaction.guild.members.fetch(req.userId).catch(() => null);
+
+  const decision = action === "accetta" ? "APPROVATA" : "RIFIUTATA";
+
+  const embed = new EmbedBuilder()
+    .setTitle(`📄 PATENTE ${decision}`)
+    .setColor(decision === "APPROVATA" ? "Green" : "Red")
+    .addFields(
+      { name:"👤 Utente", value:`<@${req.userId}>` },
+      { name:"🚗 Patente", value:req.type },
+      { name:"📝 Motivo", value:reason },
+      { name:"👮 Staff", value:`<@${interaction.user.id}>` }
+    )
+    .setImage("attachment://pagamento.png");
+
+  const staff = await client.channels.fetch(CANALE_STAFF);
+
+  await staff.send({
+    embeds: [embed],
+    files: [{ attachment: req.photo, name: "pagamento.png" }]
+  });
+
+  if (member && action === "accetta") {
+    await member.roles.add(RUOLI[req.type]);
+  }
+
+  pending.delete(id);
+
+  return interaction.reply({
+    content: "✔ Fatto",
+    flags: 64
+  });
 
 } catch (err) {
   console.log(err);
