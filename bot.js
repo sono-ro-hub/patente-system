@@ -70,7 +70,32 @@ const ch=await client.channels.fetch(CANALE_RICHIESTE);
 const embed=new EmbedBuilder()  
 .setColor("#0B1F3A")  
 .setTitle("🏛️ Dipartimento Trasporti")  
-.setDescription("Sistema patenti attivo — Sud Italy RP");  
+.setDescription(`• 🏛️ Dipartimento Trasporti — __Sud Italy RP__
+
+Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
+
+━━━━━━━━━━━━━━━━━━
+📋 Tipi di patente
+
+__🅰️ Patente A__  
+Moto e veicoli a due ruote  
+
+__🅱️ Patente B__  
+Autovetture e veicoli leggeri  
+
+__🅲 Patente C-D__  
+Camion, autobus e mezzi pesanti  
+
+━━━━━━━━━━━━━━━━━━
+__📝 Condizioni richieste__
+
+• Essere cittadino registrato  
+• Comportamento civile  
+• Nessuna sospensione attiva  
+• Conoscenza codice stradale  
+
+━━━━━━━━━━━━━━━━━━
+⚠️ Se possiedi già la patente richiesta, non puoi rifare il test.`);  
 
 const row=new ActionRowBuilder().addComponents(  
 new ButtonBuilder()  
@@ -91,15 +116,32 @@ try{
 // START  
 if(interaction.isButton() && interaction.customId==="start"){  
 
+const member=interaction.member;  
+
+// ❌ BLOCCO PATENTE GIÀ POSSEDUTA  
+const options=[];  
+
+if(!member.roles.cache.has(RUOLI.A))  
+options.push({label:"Patente A",value:"A"});  
+
+if(!member.roles.cache.has(RUOLI.B))  
+options.push({label:"Patente B",value:"B"});  
+
+if(!member.roles.cache.has(RUOLI.CD))  
+options.push({label:"Patente C-D",value:"CD"});  
+
+if(options.length===0){  
+return interaction.reply({  
+content:"❌ Hai già tutte le patenti disponibili.",  
+ephemeral:true  
+});  
+}  
+
 const menu=new ActionRowBuilder().addComponents(  
 new StringSelectMenuBuilder()  
 .setCustomId("select")  
 .setPlaceholder("Seleziona patente")  
-.addOptions([  
-{label:"Patente A",value:"A"},  
-{label:"Patente B",value:"B"},  
-{label:"Patente C-D",value:"CD"}  
-])  
+.addOptions(options)  
 );  
 
 return interaction.reply({  
@@ -151,7 +193,7 @@ interaction.fields.getTextInputValue(`q${i}`)
 data.waitingPhoto=true;  
 
 return interaction.reply({  
-content:"📸 Invia la foto nel canale foto.",  
+content:`📸 Vai nel canale <#${CANALE_FOTO}> e carica la foto del pagamento.`,  
 ephemeral:true  
 });  
 }  
@@ -179,13 +221,12 @@ new TextInputBuilder()
 return interaction.showModal(modal);  
 }  
 
-// FINAL DECISION  
+// FINAL  
 if(interaction.isModalSubmit() && interaction.customId.startsWith("motivo_")){  
 
 const [,action,userId]=interaction.customId.split("_");  
 
 const req=pending.get(userId);  
-
 if(!req){  
 return interaction.reply({  
 content:"❌ Richiesta non trovata",  
@@ -199,27 +240,26 @@ const member=await interaction.guild.members.fetch(userId).catch(()=>null);
 
 const decision=action==="accetta"?"APPROVATA":"RIFIUTATA";  
 
-// ===== EMBED LOG STAFF =====  
-const logEmbed=new EmbedBuilder()  
+// LOG STAFF  
+const staffEmbed=new EmbedBuilder()  
 .setTitle(`📄 PATENTE ${decision}`)  
 .setColor(decision==="APPROVATA"?"Green":"Red")  
 .addFields(  
 {name:"👤 Utente",value:`<@${userId}>`},  
-{name:"🚗 Tipo",value:req.type},  
+{name:"🚗 Patente",value:req.type},  
 {name:"📝 Motivo",value:reason},  
 {name:"👮 Staff",value:`<@${interaction.user.id}>`}  
 );  
 
-const staffChannel=await client.channels.fetch(CANALE_STAFF);  
+const staff=await client.channels.fetch(CANALE_STAFF);  
+await staff.send({embeds:[staffEmbed]});  
 
-await staffChannel.send({embeds:[logEmbed]});  
-
-// ===== RUOLO =====  
+// RUOLO  
 if(member && action==="accetta"){  
 await member.roles.add(RUOLI[req.type]);  
 }  
 
-// ===== DM UTENTE =====  
+// DM UTENTE  
 const userEmbed=new EmbedBuilder()  
 .setTitle(`📄 Patente ${decision}`)  
 .setColor(decision==="APPROVATA"?"Green":"Red")  
@@ -232,11 +272,10 @@ const userEmbed=new EmbedBuilder()
 const user=await client.users.fetch(userId);  
 await user.send({embeds:[userEmbed]}).catch(()=>{});  
 
-// ===== CLEAN =====  
 pending.delete(userId);  
 
 return interaction.reply({  
-content:"✔ Completato",  
+content:"✔ Fatto",  
 ephemeral:true  
 });  
 }  
