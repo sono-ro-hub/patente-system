@@ -23,8 +23,6 @@ const client = new Client({
 // ================= CONFIG =================
 const CANALE_RICHIESTE = "1493595963942768860";
 const CANALE_STAFF = "1493597555760824503";
-
-// NUOVO CANALE FOTO (pagamenti patente)
 const CANALE_FOTO = "1494066451152240650";
 
 const RUOLI = {
@@ -33,7 +31,6 @@ const RUOLI = {
   CD: "1493609213086142645"
 };
 
-// ================= MEMORY =================
 const userData = new Map();
 const pending = new Map();
 
@@ -66,43 +63,38 @@ CD:[
 };
 
 // ================= READY =================
-client.once("ready", async () => {
+client.once("ready", async()=>{
 
- console.log("BOT ONLINE");
+const ch=await client.channels.fetch(CANALE_RICHIESTE);
 
- const ch=await client.channels.fetch(CANALE_RICHIESTE);
+const embed=new EmbedBuilder()
+.setColor("Blue")
+.setDescription("• 🏛️ Dipartimento Trasporti — __Sud Italy RP__");
 
- const embed=new EmbedBuilder()
- .setColor("Blue")
- .setDescription(`
-• 🏛️ Dipartimento Trasporti — __Sud Italy RP__
+const row=new ActionRowBuilder().addComponents(
+new ButtonBuilder()
+.setCustomId("start")
+.setLabel("MODULI PATENTE")
+.setStyle(ButtonStyle.Primary)
+);
 
-Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
- `);
-
- const row=new ActionRowBuilder().addComponents(
- new ButtonBuilder()
- .setCustomId("start")
- .setLabel("MODULI PATENTE")
- .setStyle(ButtonStyle.Primary)
- );
-
- await ch.send({
- embeds:[embed],
- components:[row]
- });
+await ch.send({
+embeds:[embed],
+components:[row]
+});
 
 });
 
-// ================= INTERAZIONI =================
+// ================= INTERACTION =================
 client.on("interactionCreate", async interaction=>{
 
 try{
 
-// START
-if(interaction.isButton() && interaction.customId==="start"){
+if(interaction.isButton() &&
+interaction.customId==="start"){
 
-const menu=new ActionRowBuilder().addComponents(
+const menu=
+new ActionRowBuilder().addComponents(
 new StringSelectMenuBuilder()
 .setCustomId("select")
 .setPlaceholder("Seleziona patente")
@@ -121,17 +113,20 @@ ephemeral:true
 
 }
 
-// SELECT QUIZ
 if(interaction.isStringSelectMenu()){
 
 const type=interaction.values[0];
 
-userData.set(interaction.user.id,{
+userData.set(
+interaction.user.id,
+{
 type,
 answers:[]
-});
+}
+);
 
-const modal=new ModalBuilder()
+const modal=
+new ModalBuilder()
 .setCustomId("quiz")
 .setTitle("Quiz Patente");
 
@@ -153,26 +148,32 @@ return interaction.showModal(modal);
 
 }
 
-// QUIZ SUBMIT
-if(interaction.isModalSubmit() && interaction.customId==="quiz"){
+if(
+interaction.isModalSubmit() &&
+interaction.customId==="quiz"
+){
 
-const data=userData.get(interaction.user.id);
+const data=
+userData.get(
+interaction.user.id
+);
+
 if(!data) return;
 
-data.answers=QUESTIONS[data.type].map((q,i)=>
+data.answers=
+QUESTIONS[data.type].map((q,i)=>
 interaction.fields.getTextInputValue(`q${i}`)
 );
 
 data.waitingPhoto=true;
 
 return interaction.reply({
-content:"📸 Ora vai nel canale <#1494066451152240650> e clicca il + per allegare la foto del pagamento.",
+content:"📸 Vai nel canale <#1494066451152240650> e clicca il + per allegare la foto del pagamento.",
 ephemeral:true
 });
 
 }
 
-// STAFF BUTTON
 if(
 interaction.isButton() &&
 (
@@ -181,8 +182,11 @@ interaction.customId.startsWith("rifiuta_")
 )
 ){
 
-const modal=new ModalBuilder()
-.setCustomId(`motivo_${interaction.customId}`)
+const modal=
+new ModalBuilder()
+.setCustomId(
+`motivo_${interaction.customId}`
+)
 .setTitle("Motivo obbligatorio");
 
 modal.addComponents(
@@ -199,34 +203,50 @@ return interaction.showModal(modal);
 
 }
 
-// STAFF RESULT
 if(
 interaction.isModalSubmit() &&
 interaction.customId.startsWith("motivo_")
 ){
 
-const full=interaction.customId.replace("motivo_","");
-const[action,id]=full.split("_");
+const full=
+interaction.customId.replace(
+"motivo_",""
+);
 
-const req=pending.get(id);
+const[action,id]=
+full.split("_");
+
+const req=
+pending.get(id);
+
 if(!req) return;
 
-const reason=interaction.fields.getTextInputValue("reason");
+const reason=
+interaction.fields.getTextInputValue(
+"reason"
+);
 
-const member=await interaction.guild.members.fetch(id)
+const member=
+await interaction.guild.members
+.fetch(id)
 .catch(()=>null);
 
-const qa=req.answers.map((a,i)=>
-`**${QUESTIONS[req.type][i]}** → ${a}`
-).join("\n");
+const qa=
+req.answers.map((a,i)=>
+`**${QUESTIONS[req.type][i]}**
+${a}`
+).join("\n\n");
 
 const decision=
 action==="accetta"
 ?"APPROVATA"
 :"RIFIUTATA";
 
-const embed=new EmbedBuilder()
-.setTitle(`📄 PATENTE ${decision}`)
+const embed=
+new EmbedBuilder()
+.setTitle(
+`📄 PATENTE ${decision}`
+)
 .setColor(
 decision==="APPROVATA"
 ?"Green"
@@ -235,14 +255,24 @@ decision==="APPROVATA"
 .addFields(
 {name:"👤 Utente",value:`<@${id}>`},
 {name:"🚗 Patente",value:req.type},
-{name:"📋 Quiz",value:qa},
+{
+name:"📋 Quiz",
+value:qa.slice(0,1024)
+},
 {name:"📝 Motivo",value:reason},
-{name:"👮 Staff",value:`<@${interaction.user.id}>`}
+{
+name:"👮 Staff",
+value:`<@${interaction.user.id}>`
+}
 )
-.setImage("attachment://pagamento.png");
+.setImage(
+"attachment://pagamento.png"
+);
 
 const staff=
-await client.channels.fetch(CANALE_STAFF);
+await client.channels.fetch(
+CANALE_STAFF
+);
 
 await staff.send({
 embeds:[embed],
@@ -260,9 +290,6 @@ if(action==="accetta"){
 await member.roles.add(
 RUOLI[req.type]
 );
-await member.send("✅ Patente approvata");
-}else{
-await member.send("❌ Patente rifiutata");
 }
 
 }
@@ -289,26 +316,33 @@ try{
 
 if(msg.author.bot) return;
 
-// FOTO SOLO NEL CANALE FOTO
-if(msg.channel.id!==CANALE_FOTO) return;
+// SOLO CANALE FOTO
+if(
+msg.channel.id!==CANALE_FOTO
+) return;
 
-const data=userData.get(msg.author.id);
+const data=
+userData.get(msg.author.id);
 
-if(!data || !data.waitingPhoto) return;
+if(!data || !data.waitingPhoto)
+return;
 
 const attachment=
 msg.attachments.first();
 
 if(!attachment) return;
 
-// scarica foto PRIMA di delete
-const res=await fetch(attachment.url);
-const buffer=
-Buffer.from(await res.arrayBuffer());
+const res=
+await fetch(
+attachment.url
+);
 
-try{
-await msg.delete();
-}catch{}
+const buffer=
+Buffer.from(
+await res.arrayBuffer()
+);
+
+// ❌ NON CANCELLA PIÙ FOTO
 
 pending.set(
 msg.author.id,
@@ -319,35 +353,70 @@ photo:buffer
 }
 );
 
-userData.delete(msg.author.id);
+userData.delete(
+msg.author.id
+);
 
-const staff=
-await client.channels.fetch(CANALE_STAFF);
+// DOMANDE + RISPOSTE
+const qa =
+data.answers.map((a,i)=>
+`**${QUESTIONS[data.type][i]}**
+${a}`
+).join("\n\n");
 
 const embed=
 new EmbedBuilder()
-.setTitle("📄 NUOVA RICHIESTA PATENTE")
-.setDescription(`<@${msg.author.id}>`)
-.addFields(
-{name:"🚗 Patente",value:data.type},
-{name:"📸 Stato",value:"Foto ricevuta ✔"}
+.setTitle(
+"📄 NUOVA RICHIESTA PATENTE"
 )
-.setImage("attachment://pagamento.png");
+.setDescription(
+`<@${msg.author.id}>`
+)
+.addFields(
+{
+name:"🚗 Patente",
+value:data.type
+},
+{
+name:"📋 Domande e Risposte",
+value:qa.slice(0,1024)
+},
+{
+name:"📸 Stato",
+value:"Foto ricevuta ✔"
+}
+)
+.setImage(
+"attachment://pagamento.png"
+);
 
 const row=
 new ActionRowBuilder()
 .addComponents(
 
 new ButtonBuilder()
-.setCustomId(`accetta_${msg.author.id}`)
+.setCustomId(
+`accetta_${msg.author.id}`
+)
 .setLabel("ACCETTA")
-.setStyle(ButtonStyle.Success),
+.setStyle(
+ButtonStyle.Success
+),
 
 new ButtonBuilder()
-.setCustomId(`rifiuta_${msg.author.id}`)
+.setCustomId(
+`rifiuta_${msg.author.id}`
+)
 .setLabel("RIFIUTA")
-.setStyle(ButtonStyle.Danger)
+.setStyle(
+ButtonStyle.Danger
+)
 
+);
+
+const staff=
+await client.channels.fetch(
+CANALE_STAFF
 );
 
 await staff.send({
@@ -367,5 +436,6 @@ console.log(err);
 
 });
 
-// ================= LOGIN =================
-client.login(process.env.TOKEN);
+client.login(
+process.env.TOKEN
+);
