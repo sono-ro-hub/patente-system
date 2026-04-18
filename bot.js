@@ -43,24 +43,24 @@ const pending = new Map();
 const QUESTIONS = {
   A: [
     "Casco obbligatorio quando si guida una moto?",
-    "I fari devono essere accesi anche di giorno?",
-    "In curva bisogna rallentare prima di entrare?",
-    "Su strada bagnata la frenata aumenta?",
-    "È obbligatorio usare i guanti?",
+    "Fari accesi anche di giorno?",
+    "Rallentare in curva?",
+    "Strada bagnata aumenta frenata?",
+    "Guanti obbligatori?",
   ],
   B: [
-    "La cintura è obbligatoria sempre?",
-    "Il limite in città è 50 km/h?",
-    "Serve distanza di sicurezza?",
-    "Si può usare il telefono senza vivavoce?",
-    "I bambini devono usare seggiolino?",
+    "Cintura sempre obbligatoria?",
+    "Limite urbano 50 km/h?",
+    "Distanza di sicurezza serve?",
+    "Telefono senza vivavoce?",
+    "Seggiolino bambini obbligatorio?",
   ],
   CD: [
     "Limite camion in città?",
-    "Cosa fai al semaforo rosso?",
-    "Chi ha precedenza agli incroci?",
-    "Quando usi anabbaglianti?",
-    "Come comportarsi con ambulanza?",
+    "Cosa fai al rosso?",
+    "Precedenza incroci?",
+    "Anabbaglianti quando?",
+    "Ambulanza come comportarsi?",
   ],
 };
 
@@ -72,23 +72,18 @@ client.once("ready", async () => {
     .setColor("#0B1F3A")
     .setDescription(`• 🏛️ Dipartimento Trasporti — __Sud Italy RP__
 
-Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
+━━━━━━━━━━━━━━━━━━
+📋 Patenti:
+🅰️ Moto  
+🅱️ Auto  
+🅲 Camion/Bus  
 
 ━━━━━━━━━━━━━━━━━━
-📋 Tipi di patente
-🅰️ Patente A → moto  
-🅱️ Patente B → auto  
-🅲 Patente C-D → camion/bus  
-
-━━━━━━━━━━━━━━━━━━
-📝 Requisiti
+📝 Requisiti:
 • cittadino registrato  
 • comportamento corretto  
-• nessuna sospensione  
-• conoscenza regole  
-
-━━━━━━━━━━━━━━━━━━
-⚠️ Violazioni = rifiuto automatico`);
+• niente sospensioni  
+• conoscenza regole`);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -177,7 +172,7 @@ client.on("interactionCreate", async (interaction) => {
       });
 
       return interaction.reply({
-        content: `📸 Vai nel canale <#${CANALE_FOTO}> e invia la foto pagamento.`,
+        content: `📸 Invia la foto nel canale o forum designato.`,
         ephemeral: true,
       });
     }
@@ -221,7 +216,7 @@ client.on("interactionCreate", async (interaction) => {
         .map((a, i) => `**${QUESTIONS[req.type][i]}**\n➡️ ${a}`)
         .join("\n\n");
 
-      const log = new EmbedBuilder()
+      const embed = new EmbedBuilder()
         .setTitle("📋 ACCETTAZIONE DOCS PATENTE")
         .setColor("#a81900")
         .addFields(
@@ -235,8 +230,7 @@ client.on("interactionCreate", async (interaction) => {
         .setImage(req.photo);
 
       const staff = await client.channels.fetch(CANALE_STAFF);
-
-      const msg = await staff.send({ embeds: [log] });
+      const msg = await staff.send({ embeds: [embed] });
 
       const old = await staff.messages.fetch(req.messageId).catch(() => null);
       if (old) old.delete().catch(() => {});
@@ -254,10 +248,19 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
-// ================= FOTO =================
+// ================= FOTO + FORUM FIX =================
 client.on("messageCreate", async (msg) => {
   if (msg.author.bot) return;
-  if (msg.channel.id !== CANALE_FOTO) return;
+
+  // 🔥 FIX FORUM + CANALE NORMALE
+  const isForumThread =
+    msg.channel.isThread?.() &&
+    msg.channel.parentId === CANALE_FOTO;
+
+  const isNormalChannel =
+    msg.channel.id === CANALE_FOTO;
+
+  if (!isForumThread && !isNormalChannel) return;
 
   const data = userData.get(msg.author.id);
   if (!data || !data.waitingPhoto) return;
@@ -269,7 +272,7 @@ client.on("messageCreate", async (msg) => {
     .map((a, i) => `**${QUESTIONS[data.type][i]}**\n➡️ ${a}`)
     .join("\n\n");
 
-  const staff = await client.channels.fetch(CANALE_STAFF);
+  const id = msg.author.id;
 
   const embed = new EmbedBuilder()
     .setTitle("📄 NUOVA RICHIESTA PATENTE")
@@ -281,13 +284,12 @@ client.on("messageCreate", async (msg) => {
     )
     .setImage(att.url);
 
-  const id = msg.author.id;
-
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`accetta_${id}`).setLabel("ACCETTA").setStyle(ButtonStyle.Success),
     new ButtonBuilder().setCustomId(`rifiuta_${id}`).setLabel("RIFIUTA").setStyle(ButtonStyle.Danger)
   );
 
+  const staff = await client.channels.fetch(CANALE_STAFF);
   const sent = await staff.send({ embeds: [embed], components: [row] });
 
   pending.set(id, {
