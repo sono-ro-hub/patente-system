@@ -124,40 +124,17 @@ client.on("interactionCreate", async interaction => {
 
 try {
 
-  // ================= START (FIX CORRETTO) =================
+  // ================= START =================
   if (interaction.isButton() && interaction.customId === "start") {
-
-    const member = await interaction.guild.members.fetch(interaction.user.id);
-
-    const requestedTypes = ["A", "B", "CD"];
-
-    // controlla SOLO se ha già quella specifica patente
-    const hasAll = {
-      A: member.roles.cache.has(RUOLI.A),
-      B: member.roles.cache.has(RUOLI.B),
-      CD: member.roles.cache.has(RUOLI.CD)
-    };
 
     const menu = new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
         .setCustomId("select")
         .setPlaceholder("Seleziona patente")
         .addOptions([
-          {
-            label: hasAll.A ? "Patente A (GIÀ POSSEDUTA)" : "Patente A",
-            value: "A",
-            description: hasAll.A ? "Già possiedi questa patente" : "Moto"
-          },
-          {
-            label: hasAll.B ? "Patente B (GIÀ POSSEDUTA)" : "Patente B",
-            value: "B",
-            description: hasAll.B ? "Già possiedi questa patente" : "Auto"
-          },
-          {
-            label: hasAll.CD ? "Patente C-D (GIÀ POSSEDUTA)" : "Patente C-D",
-            value: "CD",
-            description: hasAll.CD ? "Già possiedi questa patente" : "Camion/Bus"
-          }
+          { label: "Patente A", value: "A" },
+          { label: "Patente B", value: "B" },
+          { label: "Patente C-D", value: "CD" }
         ])
     );
 
@@ -168,7 +145,7 @@ try {
     });
   }
 
-  // ================= BLOCCO PER SINGOLA PATENTE =================
+  // ================= FIX SELECT (NO ERROR INTERACTION) =================
   if (interaction.isStringSelectMenu()) {
 
     const type = interaction.values[0];
