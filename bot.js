@@ -13,6 +13,7 @@ const {
 
 const express = require("express");
 const app = express();
+
 app.get("/", (req, res) => res.send("Bot online ✔"));
 app.listen(process.env.PORT || 3000);
 
@@ -79,23 +80,26 @@ Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza uf
 
 ━━━━━━━━━━━━━━━━━━
 📋Tipi di patente
+
 __🅰️ Patente A__
 Consente la guida di __motocicli__ e veicoli a due ruote.
+
 __🅱️ Patente B__
-Permette di guidare __autovetture__ e veicoli leggeri.
+Permette di guidare __autovetture__ e veicoli leggeri. 
+
 __🅲 Patente C-D__
-Permette di guidare __camion__, __pullman__ o __autobus__.
+Permette di far guidare __camion__, __pullman__ o __autobus__, utili per il trasporto delle merci e delle persone.
 
 ━━━━━━━━━━━━━━━━━━
 📝Condizioni richieste
 
-• Essere un __cittadino__ registrato  
-• Comportamento civile  
-• Nessuna sospensione attiva  
-• Conoscenza codice strada  
+• Essere un __cittadino__ registrato e approvato all’interno del server  
+• Avere un __comportamento civile__ e rispettoso delle regole RP  
+• Non essere __soggetto__ a __sospensioni__ o provvedimenti attivi  
+• Dimostrare una __conoscenza adeguata__ delle norme di circolazione  
 
 ━━━━━━━━━━━━━━━━━━
-⚠️ Il mancato rispetto comporterà rifiuto automatico.`);
+⚠️ Il mancato rispetto dei requisiti comporterà il rifiuto automatico della richiesta.`);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -151,11 +155,11 @@ client.on("interactionCreate", async (interaction) => {
         waitingPhoto: false
       });
 
+      const q = QUESTIONS[type];
+
       const modal = new ModalBuilder()
         .setCustomId("quiz")
         .setTitle("Quiz Patente");
-
-      const q = QUESTIONS[type];
 
       for (let i = 0; i < 5; i++) {
         modal.addComponents(
@@ -199,22 +203,20 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
-// ================= FOTO FIX (IMPORTANTISSIMO) =================
+// ================= FOTO =================
 client.on("messageCreate", async (msg) => {
   try {
 
     if (msg.author.bot) return;
-
     if (msg.channel.id !== CANALE_FOTO) return;
 
     const data = userData.get(msg.author.id);
-
     if (!data || !data.waitingPhoto) return;
 
     const attachment = msg.attachments.first();
     if (!attachment) return;
 
-    const id = msg.author.id + Date.now();
+    const id = msg.author.id + "_" + Date.now();
 
     pending.set(id, {
       userId: msg.author.id,
@@ -250,7 +252,8 @@ client.on("messageCreate", async (msg) => {
 
     const sent = await staff.send({ embeds: [embed], components: [row] });
 
-    pending.get(id).messageId = sent.id;
+    const p = pending.get(id);
+    if (p) p.messageId = sent.id;
 
   } catch (err) {
     console.log(err);
@@ -263,10 +266,17 @@ client.on("interactionCreate", async (interaction) => {
 
     if (!interaction.isButton()) return;
 
-    const [action, id] = interaction.customId.split("_");
+    const parts = interaction.customId.split("_");
+    const action = parts[0];
+    const id = parts.slice(1).join("_");
 
     const req = pending.get(id);
-    if (!req) return;
+    if (!req) {
+      return interaction.reply({
+        content: "❌ Richiesta non trovata.",
+        flags: 64
+      });
+    }
 
     const modal = new ModalBuilder()
       .setCustomId(`motivo_${action}_${id}`)
@@ -328,16 +338,13 @@ client.on("interactionCreate", async (interaction) => {
 
     const msg = await staff.send({ embeds: [log] });
 
-    // ❌ elimina richiesta vecchia
     const old = await staff.messages.fetch(req.messageId).catch(() => {});
     if (old) await old.delete();
 
-    // ROLE
     if (member && action === "accetta") {
       await member.roles.add(RUOLI[req.type]);
     }
 
-    // DM
     const user = await client.users.fetch(req.userId);
 
     await user.send({
