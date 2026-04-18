@@ -69,20 +69,33 @@ const ch=await client.channels.fetch(CANALE_RICHIESTE);
 
 const embed=new EmbedBuilder()  
 .setColor("#0B1F3A")  
-.setTitle("🏛️ Dipartimento Trasporti")  
+.setTitle("🏛️ Dipartimento Trasporti — Sud Italy RP")  
 .setDescription(`• 🏛️ Dipartimento Trasporti — __Sud Italy RP__
 
-Se desideri metterti alla guida in modo regolare, devi ottenere una patente ufficiale.
+Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
 
 ━━━━━━━━━━━━━━━━━━
 📋 Tipi di patente
 
-🅰️ Patente A → Moto  
-🅱️ Patente B → Auto  
-🅲 Patente C-D → Camion e autobus  
+__🅰️ Patente A__  
+Consente la guida di __motocicli__ e veicoli a due ruote.
+
+__🅱️ Patente B__  
+Permette di guidare __autovetture__ e veicoli leggeri.
+
+__🅲 Patente C-D__  
+Permette di guidare __camion__, __pullman__ o __autobus__.
 
 ━━━━━━━━━━━━━━━━━━
-⚠️ Se possiedi già la patente NON puoi rifare il test.`);  
+📝 Condizioni richieste
+
+• Essere un __cittadino__ registrato  
+• Avere un __comportamento civile__  
+• Non essere __sospeso__  
+• Conoscere le norme di circolazione  
+
+━━━━━━━━━━━━━━━━━━
+⚠️ Il mancato rispetto comporterà il rifiuto automatico.`);  
 
 const row=new ActionRowBuilder().addComponents(  
 new ButtonBuilder()  
@@ -137,8 +150,11 @@ ephemeral:true
 });  
 }  
 
-// ================= SELECT FIX (QUI ERA IL BUG) =================  
-if(interaction.isStringSelectMenu()){  
+// ================= FIX CRASH SELECT =================  
+if(  
+interaction.isStringSelectMenu() &&  
+interaction.customId==="select"  
+){  
 
 const type=interaction.values[0];  
 
@@ -241,7 +257,6 @@ if(interaction.isModalSubmit() && interaction.customId.startsWith("motivo_")){
 const [,action,userId]=interaction.customId.split("_");  
 
 const req=pending.get(userId);  
-
 if(!req){  
 return interaction.reply({  
 content:"❌ Richiesta non trovata",  
