@@ -45,27 +45,9 @@ const pending = new Map();
 
 // ================= DOMANDE =================
 const QUESTIONS = {
-  A: [
-    "Casco obbligatorio?",
-    "Fari di giorno?",
-    "Curva: rallentare?",
-    "Guanti obbligatori?",
-    "Strada bagnata?"
-  ],
-  B: [
-    "Cintura obbligatoria?",
-    "Limite città 50?",
-    "Sorpasso linea continua?",
-    "Distanza sicurezza?",
-    "Specchietti obbligatori?"
-  ],
-  CD: [
-    "Limite camion città?",
-    "Semaforo rosso?",
-    "Precedenza incrocio?",
-    "Ambulanza cosa fai?",
-    "Velocità sicura?"
-  ]
+  A: ["Casco?", "Fari?", "Curva?", "Guanti?", "Pioggia?"],
+  B: ["Cintura?", "50 km/h?", "Sorpasso?", "Distanza?", "Specchi?"],
+  CD: ["Limite camion?", "Rosso?", "Precedenza?", "Ambulanza?", "Velocità?"]
 };
 
 // ================= READY =================
@@ -76,29 +58,7 @@ client.once("ready", async () => {
   const embed = new EmbedBuilder()
     .setColor("#0B1F3A")
     .setTitle("🏛️ Dipartimento Trasporti — Sud Italy RP")
-    .setDescription(`•  🏛️ Dipartimento Trasporti — __Sud Italy RP__
-
-Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
-
-━━━━━━━━━━━━━━━━━━
-📋Tipi di patente
-__🅰️ Patente A__
-Consente la guida di __motocicli__ e veicoli a due ruote.
-__🅱️ Patente B__
-Permette di guidare __autovetture__ e veicoli leggeri. 
-__🅲 Patente C-D__
-Permette di far guidare __camion__, __pullman__ o __autobus__, utili per il trasporto delle merci e delle persone.
-
-━━━━━━━━━━━━━━━━━━
-📝Condizioni richieste
-
-• Essere un __cittadino__ registrato e approvato all’interno del server  
-• Avere un __comportamento civile__ e rispettoso delle regole RP  
-• Non essere __soggetto__ a __sospensioni__ o provvedimenti attivi  
-• Dimostrare una __conoscenza adeguata__ delle norme di circolazione    
-
-━━━━━━━━━━━━━━━━━━
-⚠️ Il mancato rispetto dei requisiti comporterà il rifiuto automatico della richiesta.`);
+    .setDescription("Clicca per iniziare la patente.");
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -110,107 +70,104 @@ Permette di far guidare __camion__, __pullman__ o __autobus__, utili per il tras
   await ch.send({ embeds: [embed], components: [row] });
 });
 
-// ================= INTERACTION =================
+// ================= START =================
 client.on("interactionCreate", async (interaction) => {
 
-  try {
+  if (interaction.isButton() && interaction.customId === "start") {
 
-    // ================= START =================
-    if (interaction.isButton() && interaction.customId === "start") {
+    const member = interaction.member;
 
-      const member = interaction.member;
+    const options = [
+      { label: member.roles.cache.has(RUOLI.A) ? "Patente A (GIÀ)" : "Patente A", value: "A" },
+      { label: member.roles.cache.has(RUOLI.B) ? "Patente B (GIÀ)" : "Patente B", value: "B" },
+      { label: member.roles.cache.has(RUOLI.CD) ? "Patente C-D (GIÀ)" : "Patente C-D", value: "CD" }
+    ];
 
-      const options = [
-        { label: member.roles.cache.has(RUOLI.A) ? "Patente A (GIÀ)" : "Patente A", value: "A" },
-        { label: member.roles.cache.has(RUOLI.B) ? "Patente B (GIÀ)" : "Patente B", value: "B" },
-        { label: member.roles.cache.has(RUOLI.CD) ? "Patente C-D (GIÀ)" : "Patente C-D", value: "CD" }
-      ];
+    return interaction.reply({
+      content: "Seleziona patente:",
+      components: [
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId("select")
+            .setPlaceholder("Scegli patente")
+            .addOptions(options)
+        )
+      ],
+      ephemeral: true
+    });
+  }
 
+  // ================= SELECT =================
+  if (interaction.isStringSelectMenu()) {
+
+    const type = interaction.values[0];
+    const member = interaction.member;
+
+    if (member.roles.cache.has(RUOLI[type])) {
       return interaction.reply({
-        content: "Seleziona patente:",
-        components: [
-          new ActionRowBuilder().addComponents(
-            new StringSelectMenuBuilder()
-              .setCustomId("select")
-              .setPlaceholder("Scegli patente")
-              .addOptions(options)
-          )
-        ],
+        content: "❌ Hai già questa patente",
         ephemeral: true
       });
     }
 
-    // ================= SELECT =================
-    if (interaction.isStringSelectMenu() && interaction.customId === "select") {
+    userData.set(interaction.user.id, { type });
 
-      const type = interaction.values[0];
-      const member = interaction.member;
+    const q = QUESTIONS[type];
 
-      if (member.roles.cache.has(RUOLI[type])) {
-        return interaction.reply({
-          content: "❌ Hai già questa patente",
-          ephemeral: true
-        });
-      }
+    const modal = new ModalBuilder()
+      .setCustomId("quiz")
+      .setTitle("Quiz Patente");
 
-      userData.set(interaction.user.id, { type });
+    const rows = [];
 
-      const q = QUESTIONS[type];
-
-      const modal = new ModalBuilder()
-        .setCustomId("quiz")
-        .setTitle("Quiz Patente");
-
-      const rows = [];
-
-      for (let i = 0; i < 5; i++) {
-        rows.push(
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder()
-              .setCustomId(`q${i}`)
-              .setLabel(q[i].slice(0, 45))
-              .setStyle(TextInputStyle.Short)
-              .setRequired(true)
-          )
-        );
-      }
-
-      modal.addComponents(rows);
-
-      return interaction.showModal(modal);
+    for (let i = 0; i < 5; i++) {
+      rows.push(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId(`q${i}`)
+            .setLabel(q[i])
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+        )
+      );
     }
 
-    // ================= QUIZ =================
-    if (interaction.isModalSubmit() && interaction.customId === "quiz") {
+    modal.addComponents(rows);
 
-      const data = userData.get(interaction.user.id);
-      if (!data) return;
+    return interaction.showModal(modal);
+  }
 
-      const answers = [];
+  // ================= QUIZ =================
+  if (interaction.isModalSubmit()) {
 
-      for (let i = 0; i < 5; i++) {
-        answers.push(interaction.fields.getTextInputValue(`q${i}`));
-      }
+    const data = userData.get(interaction.user.id);
+    if (!data) return;
 
-      data.answers = answers;
-      data.waitingPhoto = true;
+    const answers = [];
 
-      return interaction.reply({
-        content: `📸 Vai nel canale <#${CANALE_FOTO}> e invia la foto del pagamento.`,
-        ephemeral: true
-      });
+    for (let i = 0; i < 5; i++) {
+      answers.push(interaction.fields.getTextInputValue(`q${i}`));
     }
 
-  } catch (err) {
-    console.log(err);
+    data.answers = answers;
+    data.waitingPhoto = true;
+
+    return interaction.reply({
+      content: `📸 Invia la foto nel canale <#${CANALE_FOTO}>`,
+      ephemeral: true
+    });
   }
 });
 
-// ================= FOTO =================
+// ================= FOTO + FORUM SUPPORT =================
 client.on("messageCreate", async (msg) => {
 
   if (msg.author.bot) return;
-  if (msg.channel.id !== CANALE_FOTO) return;
+
+  // 🔥 SUPPORTO CANALE + FORUM (THREAD)
+  const isForum = msg.channel.isThread?.() || msg.channel.parent?.type === 15;
+
+  if (!isForum && msg.channel.id !== CANALE_FOTO) return;
 
   const data = userData.get(msg.author.id);
   if (!data || !data.waitingPhoto) return;
@@ -219,6 +176,10 @@ client.on("messageCreate", async (msg) => {
   if (!attachment) return;
 
   const id = msg.author.id + Date.now();
+
+  const qa = data.answers
+    .map((a, i) => `**${QUESTIONS[data.type][i]}**\n➡️ ${a}`)
+    .join("\n\n");
 
   pending.set(id, {
     userId: msg.author.id,
@@ -237,6 +198,7 @@ client.on("messageCreate", async (msg) => {
     .addFields(
       { name: "👤 Utente", value: `<@${msg.author.id}>` },
       { name: "🚗 Patente", value: data.type },
+      { name: "📋 Domande & Risposte", value: qa.slice(0, 1024) },
       { name: "📸 Stato", value: "In attesa approvazione" }
     )
     .setImage(attachment.url);
@@ -251,7 +213,7 @@ client.on("messageCreate", async (msg) => {
   pending.get(id).messageId = sent.id;
 });
 
-// ================= DECISIONE STAFF =================
+// ================= STAFF MOTIVO =================
 client.on("interactionCreate", async (interaction) => {
 
   if (!interaction.isButton()) return;
@@ -260,13 +222,42 @@ client.on("interactionCreate", async (interaction) => {
   const req = pending.get(id);
   if (!req) return;
 
-  const member = await interaction.guild.members.fetch(req.userId);
+  const modal = new ModalBuilder()
+    .setCustomId(`motivo_${action}_${id}`)
+    .setTitle("Motivo obbligatorio");
 
-  if (action === "accetta") {
-    await member.roles.add(RUOLI[req.type]);
-  }
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId("reason")
+        .setLabel("Scrivi motivo")
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true)
+    )
+  );
+
+  return interaction.showModal(modal);
+});
+
+// ================= FINAL DECISION =================
+client.on("interactionCreate", async (interaction) => {
+
+  if (!interaction.isModalSubmit()) return;
+  if (!interaction.customId.startsWith("motivo_")) return;
+
+  const [, action, id] = interaction.customId.split("_");
+  const req = pending.get(id);
+  if (!req) return;
+
+  const reason = interaction.fields.getTextInputValue("reason");
+
+  const member = await interaction.guild.members.fetch(req.userId).catch(() => null);
 
   const status = action === "accetta" ? "ACCETTATA" : "RIFIUTATA";
+
+  const qa = req.answers
+    .map((a, i) => `**${QUESTIONS[req.type][i]}**\n➡️ ${a}`)
+    .join("\n\n");
 
   const logEmbed = new EmbedBuilder()
     .setTitle("📋 ESITO PATENTE")
@@ -275,30 +266,41 @@ client.on("interactionCreate", async (interaction) => {
       { name: "👤 Utente", value: `<@${req.userId}>` },
       { name: "🚗 Patente", value: req.type },
       { name: "📊 Stato", value: status },
+      { name: "🧾 Domande & Risposte", value: qa.slice(0, 1024) },
+      { name: "📝 Motivo Staff", value: reason },
       { name: "👮 Staff", value: `<@${interaction.user.id}>` }
-    );
+    )
+    .setImage(req.photo);
 
   const staff = await client.channels.fetch(CANALE_STAFF);
 
   await staff.send({ embeds: [logEmbed] });
 
-  await staff.messages.fetch(req.messageId).then(m => m.delete()).catch(() => {});
+  const old = await staff.messages.fetch(req.messageId).catch(() => {});
+  if (old) await old.delete();
+
+  if (member && action === "accetta") {
+    await member.roles.add(RUOLI[req.type]);
+  }
 
   const user = await client.users.fetch(req.userId);
 
   await user.send({
     embeds: [
       new EmbedBuilder()
-        .setTitle(`✔ PATENTE ${status}`)
+        .setTitle(`📄 PATENTE ${status}`)
         .setColor(action === "accetta" ? "Green" : "Red")
-        .setDescription(`La tua patente **${req.type}** è stata ${status.toLowerCase()}`)
+        .addFields(
+          { name: "🚗 Patente", value: req.type },
+          { name: "📝 Motivo", value: reason }
+        )
     ]
   }).catch(() => {});
 
   pending.delete(id);
 
   return interaction.reply({
-    content: "✔ Fatto",
+    content: "✔ Decisione registrata",
     ephemeral: true
   });
 });
