@@ -150,7 +150,6 @@ client.on("interactionCreate", async (interaction) => {
       });
     }
 
-    // ================= SELECT =================
     if (interaction.isStringSelectMenu()) {
       const type = interaction.values[0];
 
@@ -184,7 +183,6 @@ client.on("interactionCreate", async (interaction) => {
       return interaction.showModal(modal);
     }
 
-    // ================= QUIZ =================
     if (interaction.isModalSubmit() && interaction.customId === "quiz") {
       const data = userData.get(interaction.user.id);
       if (!data) return;
@@ -208,7 +206,7 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
-// ================= FOTO (FIX COMPLETO) =================
+// ================= FOTO =================
 client.on("messageCreate", async (msg) => {
   if (msg.author.bot) return;
 
@@ -305,15 +303,20 @@ client.on("interactionCreate", async (interaction) => {
 
   const staff = await client.channels.fetch(CANALE_STAFF);
 
-  // 🔥 ELIMINA MODULO (quello con foto e domande)
-  const old = await staff.messages.fetch(req.messageId).catch(() => null);
-  if (old) await old.delete();
+  // ✅ FIX: eliminazione sicura del modulo
+  try {
+    const message = await staff.messages.fetch(req.messageId);
+    if (message) {
+      await message.delete().catch(() => null);
+    }
+  } catch (err) {
+    console.log("Errore eliminazione modulo:", err);
+  }
 
   if (member && action === "accetta") {
     await member.roles.add(RUOLI[req.type]);
   }
 
-  // DM UTENTE
   const user = await client.users.fetch(id);
 
   await user.send({
