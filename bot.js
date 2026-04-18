@@ -62,30 +62,13 @@ CD:[
 ]
 };
 
-// ================= READY (UNICO E STABILE) =================
+// ================= READY (AGGIUNTO SENZA TOCCARE STRUTTURA) =================
 client.once("ready", async () => {
+
   console.log("BOT ONLINE");
 
   const ch = await client.channels.fetch(CANALE_RICHIESTE);
 
-  // ===== EMBED START =====
-  const embedStart = new EmbedBuilder()
-    .setColor("Blue")
-    .setDescription("• 🏛️ Dipartimento Trasporti — __Sud Italy RP__");
-
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("start")
-      .setLabel("MODULI PATENTE")
-      .setStyle(ButtonStyle.Primary)
-  );
-
-  await ch.send({
-    embeds: [embedStart],
-    components: [row]
-  });
-
-  // ===== EMBED COMPLETO (LA TUA DESCRIZIONE IDENTICA) =====
   const embed = new EmbedBuilder()
     .setColor("#87CEFA")
     .setDescription(`•  🏛️ Dipartimento Trasporti — __Sud Italy RP__
@@ -126,13 +109,22 @@ __**INFORMAZIONI PATENTE**__
 **3) Invitiamo tutti a fare la patente per viaggiare in maniera sicura e in maniera indipendente, Il consiglio che possiamo è quando vi ferma un agente delle FDO per una controllo dovete fornire il nome discord e per vedere se avete la tipologia di patente per la quale state usando il veicolo se vi vedranno senza patente dovrete pagare __**1k di multa**__`
     );
 
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("start")
+      .setLabel("MODULI PATENTE")
+      .setStyle(ButtonStyle.Primary)
+  );
+
   await ch.send({
-    embeds: [embed]
+    embeds: [embed],
+    components: [row]
   });
 });
 
 // ================= INTERACTION =================
 client.on("interactionCreate", async interaction => {
+
 try {
 
   if (interaction.isButton() && interaction.customId === "start") {
@@ -195,12 +187,12 @@ try {
     data.waitingPhoto = true;
 
     return interaction.reply({
-      content: `📸 Vai nel canale <#${CANALE_FOTO}> e clicca il + per allegare la foto del pagamento.`,
+      content: `📸 Vai nel canale <#${CANALE_FOTO}> e carica la foto del pagamento.`,
       ephemeral: true
     });
   }
 
-  // ===== BOTTONI STAFF =====
+  // ================= FIX MINIMO BOTTONI STAFF =================
   if (interaction.isButton()) {
 
     if (
@@ -226,15 +218,14 @@ try {
     }
   }
 
-  // ===== MOTIVO =====
   if (
     interaction.isModalSubmit() &&
     interaction.customId.startsWith("motivo_")
   ) {
 
     const full = interaction.customId.replace("motivo_", "");
-    const last = full.lastIndexOf("_");
 
+    const last = full.lastIndexOf("_");
     const action = full.slice(0, last);
     const id = full.slice(last + 1);
 
@@ -289,6 +280,7 @@ try {
 
 // ================= FOTO =================
 client.on("messageCreate", async msg => {
+
 try {
 
   if (msg.author.bot) return;
@@ -330,6 +322,7 @@ try {
       .setCustomId(`accetta_${msg.author.id}`)
       .setLabel("ACCETTA")
       .setStyle(ButtonStyle.Success),
+
     new ButtonBuilder()
       .setCustomId(`rifiuta_${msg.author.id}`)
       .setLabel("RIFIUTA")
