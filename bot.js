@@ -198,7 +198,7 @@ client.on("interactionCreate", async (interaction) => {
       data.waitingPhoto = true;
 
       return interaction.reply({
-        content: `📸 Invia la foto nel canale <#${CANALE_FOTO}>`,
+        content: `📸 Invia la foto nel canale o forum <#${CANALE_FOTO}>`,
         flags: 64
       });
     }
@@ -208,11 +208,18 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
-// ================= FOTO =================
+// ================= FOTO (FIX COMPLETO) =================
 client.on("messageCreate", async (msg) => {
   if (msg.author.bot) return;
 
-  if (msg.channel.id !== CANALE_FOTO) return;
+  const isForumThread =
+    msg.channel.isThread?.() &&
+    msg.channel.parentId === CANALE_FOTO;
+
+  const isNormalChannel =
+    msg.channel.id === CANALE_FOTO;
+
+  if (!isForumThread && !isNormalChannel) return;
 
   const data = userData.get(msg.author.id);
   if (!data || !data.waitingPhoto) return;
@@ -225,8 +232,6 @@ client.on("messageCreate", async (msg) => {
   const qa = data.answers
     .map((a, i) => `**${QUESTIONS[data.type][i]}**\n➡️ ${a}`)
     .join("\n\n");
-
-  const staffChannel = await client.channels.fetch(CANALE_STAFF);
 
   const embed = new EmbedBuilder()
     .setTitle("📄 NUOVA RICHIESTA PATENTE")
@@ -243,7 +248,12 @@ client.on("messageCreate", async (msg) => {
     new ButtonBuilder().setCustomId(`rifiuta_${id}`).setLabel("RIFIUTA").setStyle(ButtonStyle.Danger)
   );
 
-  const sent = await staffChannel.send({ embeds: [embed], components: [row] });
+  const staffChannel = await client.channels.fetch(CANALE_STAFF);
+
+  const sent = await staffChannel.send({
+    embeds: [embed],
+    components: [row]
+  });
 
   pending.set(id, {
     ...data,
@@ -288,24 +298,22 @@ client.on("interactionCreate", async (interaction) => {
   const req = pending.get(id);
   if (!req) return;
 
-  const reason = interaction.fields.getTextInputValue("reason");
-
   const guild = interaction.guild;
   const member = await guild.members.fetch(id).catch(() => null);
 
   const status = action === "accetta" ? "ACCETTATA" : "RIFIUTATA";
 
-  // 🔥 ELIMINA IL MODULO ORIGINALE (QUELLO IN FOTO)
   const staff = await client.channels.fetch(CANALE_STAFF);
+
+  // 🔥 ELIMINA MODULO (quello con foto e domande)
   const old = await staff.messages.fetch(req.messageId).catch(() => null);
   if (old) await old.delete();
 
-  // RUOLO
   if (member && action === "accetta") {
     await member.roles.add(RUOLI[req.type]);
   }
 
-  // DM UTENTE (SENZA MOTIVO)
+  // DM UTENTE
   const user = await client.users.fetch(id);
 
   await user.send({
