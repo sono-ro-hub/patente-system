@@ -62,7 +62,7 @@ Permette di guidare __camion__, __pullman__ o __autobus__.
 ━━━━━━━━━━━━━━━━━━
 📝Condizioni richieste
 
-• Essere un __cittadino__ registrato e approvato  
+• Essere un __cittadino__ registrato  
 • Avere un __comportamento civile__  
 • Non essere __sospeso__  
 • Conoscere le norme di circolazione  
@@ -114,11 +114,12 @@ client.once("ready", async () => {
   await ch.send({ embeds: [embed], components: [row] });
 });
 
-// ================= START =================
+// ================= INTERAZIONI =================
 client.on("interactionCreate", async (interaction) => {
   try {
-    if (interaction.isButton() && interaction.customId === "start") {
 
+    // START
+    if (interaction.isButton() && interaction.customId === "start") {
       const member = interaction.member;
 
       const menu = new ActionRowBuilder().addComponents(
@@ -148,9 +149,8 @@ client.on("interactionCreate", async (interaction) => {
       });
     }
 
-    // ================= SELECT =================
+    // SELECT
     if (interaction.isStringSelectMenu()) {
-
       const type = interaction.values[0];
 
       if (interaction.member.roles.cache.has(RUOLI[type])) {
@@ -181,9 +181,8 @@ client.on("interactionCreate", async (interaction) => {
       return interaction.showModal(modal);
     }
 
-    // ================= QUIZ =================
+    // QUIZ
     if (interaction.isModalSubmit() && interaction.customId === "quiz") {
-
       const data = userData.get(interaction.user.id);
       if (!data) return;
 
@@ -203,9 +202,8 @@ client.on("interactionCreate", async (interaction) => {
       });
     }
 
-    // ================= BOTTONI =================
+    // BOTTONI STAFF
     if (interaction.isButton()) {
-
       const [action, id] = interaction.customId.split("_");
       const req = pending.get(id);
       if (!req) return;
@@ -218,7 +216,7 @@ client.on("interactionCreate", async (interaction) => {
         new ActionRowBuilder().addComponents(
           new TextInputBuilder()
             .setCustomId("reason")
-            .setLabel("Scrivi motivo")
+            .setLabel("Motivo")
             .setStyle(TextInputStyle.Paragraph)
             .setRequired(true)
         )
@@ -227,44 +225,23 @@ client.on("interactionCreate", async (interaction) => {
       return interaction.showModal(modal);
     }
 
-    // ================= FINAL =================
+    // FINAL (SOLO DM + DELETE)
     if (interaction.isModalSubmit() && interaction.customId.startsWith("motivo_")) {
-
       const [, action, id] = interaction.customId.split("_");
       const req = pending.get(id);
       if (!req) return;
 
-      const reason = interaction.fields.getTextInputValue("reason");
-
       const member = await interaction.guild.members.fetch(req.userId).catch(() => null);
-
       const status = action === "accetta" ? "ACCETTATA" : "RIFIUTATA";
 
-      const qa = req.answers
-        .map((a, i) => `**${QUESTIONS[req.type][i]}**\n➡️ ${a}`)
-        .join("\n\n");
+      // DELETE MODULO
+      try {
+        const channel = await client.channels.fetch(CANALE_STAFF);
+        const msg = await channel.messages.fetch(req.messageId);
+        if (msg) await msg.delete();
+      } catch {}
 
-      const embed = new EmbedBuilder()
-        .setTitle("📋 ACCETTAZIONE DOCS PATENTE")
-        .setColor("#a81900")
-        .addFields(
-          { name: "👤 Utente", value: `<@${req.userId}>` },
-          { name: "🚗 Patente", value: req.type },
-          { name: "📊 Esito", value: status },
-          { name: "📋 Domande & Risposte", value: qa.slice(0, 1024) },
-          { name: "📝 Motivo", value: reason },
-          { name: "👮 Staff", value: `<@${interaction.user.id}>` }
-        )
-        .setImage(req.photo);
-
-      const staff = await client.channels.fetch(CANALE_STAFF);
-
-      await staff.send({ embeds: [embed] });
-
-      // ELIMINA RICHIESTA
-      const old = await staff.messages.fetch(req.messageId).catch(() => null);
-      if (old) await old.delete().catch(() => {});
-
+      // RUOLO
       if (member && action === "accetta") {
         await member.roles.add(RUOLI[req.type]);
       }
@@ -278,8 +255,7 @@ client.on("interactionCreate", async (interaction) => {
             .setTitle(`📄 PATENTE ${status}`)
             .setColor(action === "accetta" ? "Green" : "Red")
             .addFields(
-              { name: "🚗 Patente", value: req.type },
-              { name: "📝 Motivo", value: reason }
+              { name: "🚗 Patente", value: req.type }
             )
         ]
       }).catch(() => {});
@@ -315,7 +291,7 @@ client.on("messageCreate", async (msg) => {
   const att = msg.attachments.first();
   if (!att) return;
 
-  const id = msg.author.id;
+  const id = msg.id;
 
   const qa = data.answers
     .map((a, i) => `**${QUESTIONS[data.type][i]}**\n➡️ ${a}`)
@@ -325,7 +301,7 @@ client.on("messageCreate", async (msg) => {
     .setTitle("📄 NUOVA RICHIESTA PATENTE")
     .setColor("#a81900")
     .addFields(
-      { name: "👤 Utente", value: `<@${id}>` },
+      { name: "👤 Utente", value: `<@${msg.author.id}>` },
       { name: "🚗 Patente", value: data.type },
       { name: "📋 Domande & Risposte", value: qa.slice(0, 1024) }
     )
@@ -340,14 +316,14 @@ client.on("messageCreate", async (msg) => {
   const sent = await staff.send({ embeds: [embed], components: [row] });
 
   pending.set(id, {
-    userId: id,
+    userId: msg.author.id,
     type: data.type,
     answers: data.answers,
     photo: att.url,
     messageId: sent.id
   });
 
-  userData.delete(id);
+  userData.delete(msg.author.id);
 });
 
 client.login(process.env.TOKEN);
