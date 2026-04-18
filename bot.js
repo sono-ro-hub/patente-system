@@ -40,7 +40,7 @@ const RUOLI = {
 const userData = new Map();
 const pending = new Map();
 
-// ================= QUIZ =================
+// ================= QUIZ COMPLETO =================
 const QUIZ = {
   A: [
     "Il casco è obbligatorio quando guidi la moto?",
@@ -140,8 +140,6 @@ client.on("interactionCreate", async (interaction) => {
 
     if (interaction.isButton() && interaction.customId === "start") {
 
-      await interaction.deferReply({ flags: 64 });
-
       const member = interaction.member;
 
       const menu = new ActionRowBuilder().addComponents(
@@ -150,23 +148,24 @@ client.on("interactionCreate", async (interaction) => {
           .setPlaceholder("Seleziona patente")
           .addOptions([
             {
-              label: member.roles.cache.has(RUOLI.A) ? "A (GIÀ)" : "Patente A",
+              label: member.roles.cache.has(RUOLI.A) ? "A (GIÀ POSSEDUTA)" : "Patente A",
               value: "A"
             },
             {
-              label: member.roles.cache.has(RUOLI.B) ? "B (GIÀ)" : "Patente B",
+              label: member.roles.cache.has(RUOLI.B) ? "B (GIÀ POSSEDUTA)" : "Patente B",
               value: "B"
             },
             {
-              label: member.roles.cache.has(RUOLI.CD) ? "CD (GIÀ)" : "Patente C-D",
+              label: member.roles.cache.has(RUOLI.CD) ? "CD (GIÀ POSSEDUTA)" : "Patente C-D",
               value: "CD"
             }
           ])
       );
 
-      return interaction.editReply({
+      return interaction.reply({
         content: "Seleziona patente:",
-        components: [menu]
+        components: [menu],
+        flags: 64
       });
     }
 
@@ -177,10 +176,13 @@ client.on("interactionCreate", async (interaction) => {
       const member = interaction.member;
 
       if (member.roles.cache.has(RUOLI[type])) {
-        return interaction.reply({ content: "❌ già possiedi questa patente", flags: 64 });
+        return interaction.reply({
+          content: "❌ Hai già questa patente",
+          flags: 64
+        });
       }
 
-      const shuffled = QUIZ[type].sort(() => 0.5 - Math.random());
+      const shuffled = QUIZ[type].sort(() => Math.random() - 0.5);
 
       userData.set(interaction.user.id, {
         type,
@@ -192,7 +194,7 @@ client.on("interactionCreate", async (interaction) => {
       return sendQuiz(interaction);
     }
 
-    // ================= QUIZ =================
+    // ================= QUIZ SUBMIT =================
     if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
       const data = userData.get(interaction.user.id);
@@ -212,7 +214,7 @@ client.on("interactionCreate", async (interaction) => {
         data.waitingPhoto = true;
 
         return interaction.reply({
-          content: `📸 invia la foto nel canale <#${CANALE_FOTO}>`,
+          content: `📸 Vai nel canale <#${CANALE_FOTO}> e invia la foto.`,
           flags: 64
         });
       }
@@ -225,7 +227,7 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
-// ================= FUNZIONE QUIZ =================
+// ================= QUIZ FUNCTION =================
 async function sendQuiz(interaction) {
 
   const data = userData.get(interaction.user.id);
@@ -249,9 +251,7 @@ async function sendQuiz(interaction) {
     );
   });
 
-  data.currentQuestions = questions;
-
-  return interaction.showModal(modal);
+  await interaction.showModal(modal);
 }
 
 // ================= FOTO =================
@@ -303,7 +303,7 @@ client.on("messageCreate", async (msg) => {
   pending.get(id).messageId = sent.id;
 });
 
-// ================= DECISION =================
+// ================= FINAL =================
 client.on("interactionCreate", async (interaction) => {
 
   if (!interaction.isButton()) return;
@@ -326,10 +326,10 @@ client.on("interactionCreate", async (interaction) => {
     )
   );
 
-  return interaction.showModal(modal);
+  await interaction.showModal(modal);
 });
 
-// ================= FINAL =================
+// ================= FINAL PROCESS =================
 client.on("interactionCreate", async (interaction) => {
 
   if (!interaction.isModalSubmit()) return;
@@ -383,7 +383,7 @@ client.on("interactionCreate", async (interaction) => {
 
   pending.delete(id);
 
-  return interaction.reply({ content: "✔ fatto", flags: 64 });
+  return interaction.reply({ content: "✔ completato", flags: 64 });
 });
 
 client.login(process.env.TOKEN);
