@@ -132,7 +132,7 @@ try {
     );
 
     return interaction.reply({
-      content: "Sud Italy | Seleziona patente:",
+      content: "Seleziona patente:",
       components: [menu],
       flags: 64
     });
@@ -231,7 +231,7 @@ ${a}`
 
   const embed = new EmbedBuilder()
     .setTitle("📄 NUOVA RICHIESTA PATENTE")
-    .setDescription(`Sud Italy | <@${msg.author.id}>`)
+    .setDescription(`<@${msg.author.id}>`)
     .addFields({
       name: "📊 RICHIESTA",
       value:
@@ -312,7 +312,7 @@ try {
 }
 });
 
-// ================= FINAL UPDATE FIX =================
+// ================= FINAL UPDATE =================
 client.on("interactionCreate", async interaction => {
 
 try {
@@ -343,21 +343,29 @@ ${a}`
   const embed = new EmbedBuilder()
     .setTitle(`📄 PATENTE ${decision}`)
     .setColor(decision === "APPROVATA" ? "Green" : "Red")
-    .addFields({
-      name: "📊 ESITO RICHIESTA",
-      value:
-`👤 Utente: <@${req.userId}>
-🚗 Patente: ${req.type}
-
-📋 DOMANDE E RISPOSTE:
-${qa}
-
-👮 Staff: <@${interaction.user.id}>
-📝 Motivo: ${reason}
-
-━━━━━━━━━━━━━━━━━━
-Sud Italy | ${now}`
-    });
+    .addFields(
+      {
+        name: "👤 UTENTE",
+        value: `<@${req.userId}>`
+      },
+      {
+        name: "🚗 PATENTE",
+        value: req.type
+      },
+      {
+        name: "📋 DOMANDE E RISPOSTE",
+        value: qa
+      },
+      {
+        name: action === "accetta" ? "✅ ACCETTATO DA" : "❌ RIFIUTATO DA",
+        value: `<@${interaction.user.id}>`
+      },
+      {
+        name: "📝 MOTIVO",
+        value: reason
+      }
+    )
+    .setImage("attachment://pagamento.png");
 
   const staff = await client.channels.fetch(CANALE_STAFF);
 
