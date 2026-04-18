@@ -75,8 +75,30 @@ client.once("ready", async () => {
 
   const embed = new EmbedBuilder()
     .setColor("#0B1F3A")
-    .setTitle("🏛️ Dipartimento Trasporti")
-    .setDescription("Clicca per iniziare la patente.");
+    .setTitle("🏛️ Dipartimento Trasporti — Sud Italy RP")
+    .setDescription(`•  🏛️ Dipartimento Trasporti — __Sud Italy RP__
+
+Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
+
+━━━━━━━━━━━━━━━━━━
+📋Tipi di patente
+__🅰️ Patente A__
+Consente la guida di __motocicli__ e veicoli a due ruote.
+__🅱️ Patente B__
+Permette di guidare __autovetture__ e veicoli leggeri. 
+__🅲 Patente C-D__
+Permette di far guidare __camion__, __pullman__ o __autobus__, utili per il trasporto delle merci e delle persone.
+
+━━━━━━━━━━━━━━━━━━
+📝Condizioni richieste
+
+• Essere un __cittadino__ registrato e approvato all’interno del server  
+• Avere un __comportamento civile__ e rispettoso delle regole RP  
+• Non essere __soggetto__ a __sospensioni__ o provvedimenti attivi  
+• Dimostrare una __conoscenza adeguata__ delle norme di circolazione    
+
+━━━━━━━━━━━━━━━━━━
+⚠️ Il mancato rispetto dei requisiti comporterà il rifiuto automatico della richiesta.`);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -88,11 +110,12 @@ client.once("ready", async () => {
   await ch.send({ embeds: [embed], components: [row] });
 });
 
-// ================= START =================
+// ================= INTERACTION =================
 client.on("interactionCreate", async (interaction) => {
 
   try {
 
+    // ================= START =================
     if (interaction.isButton() && interaction.customId === "start") {
 
       const member = interaction.member;
@@ -118,12 +141,11 @@ client.on("interactionCreate", async (interaction) => {
     }
 
     // ================= SELECT =================
-    if (interaction.isStringSelectMenu()) {
+    if (interaction.isStringSelectMenu() && interaction.customId === "select") {
 
       const type = interaction.values[0];
       const member = interaction.member;
 
-      // 🔒 BLOCCO SE GIÀ POSSEDUTA
       if (member.roles.cache.has(RUOLI[type])) {
         return interaction.reply({
           content: "❌ Hai già questa patente",
@@ -131,10 +153,7 @@ client.on("interactionCreate", async (interaction) => {
         });
       }
 
-      userData.set(interaction.user.id, {
-        type,
-        answers: []
-      });
+      userData.set(interaction.user.id, { type });
 
       const q = QUESTIONS[type];
 
@@ -162,7 +181,7 @@ client.on("interactionCreate", async (interaction) => {
     }
 
     // ================= QUIZ =================
-    if (interaction.isModalSubmit()) {
+    if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
       const data = userData.get(interaction.user.id);
       if (!data) return;
@@ -177,7 +196,7 @@ client.on("interactionCreate", async (interaction) => {
       data.waitingPhoto = true;
 
       return interaction.reply({
-        content: `📸 Ora vai nel canale <#${CANALE_FOTO}> e invia la foto del pagamento.`,
+        content: `📸 Vai nel canale <#${CANALE_FOTO}> e invia la foto del pagamento.`,
         ephemeral: true
       });
     }
@@ -214,7 +233,12 @@ client.on("messageCreate", async (msg) => {
 
   const embed = new EmbedBuilder()
     .setTitle("📄 NUOVA RICHIESTA PATENTE")
-    .setDescription(`<@${msg.author.id}>`)
+    .setColor("#a81900")
+    .addFields(
+      { name: "👤 Utente", value: `<@${msg.author.id}>` },
+      { name: "🚗 Patente", value: data.type },
+      { name: "📸 Stato", value: "In attesa approvazione" }
+    )
     .setImage(attachment.url);
 
   const row = new ActionRowBuilder().addComponents(
@@ -222,17 +246,18 @@ client.on("messageCreate", async (msg) => {
     new ButtonBuilder().setCustomId(`rifiuta_${id}`).setLabel("RIFIUTA").setStyle(ButtonStyle.Danger)
   );
 
-  await staff.send({ embeds: [embed], components: [row] });
+  const sent = await staff.send({ embeds: [embed], components: [row] });
+
+  pending.get(id).messageId = sent.id;
 });
 
-// ================= STAFF DECISION =================
+// ================= DECISIONE STAFF =================
 client.on("interactionCreate", async (interaction) => {
 
   if (!interaction.isButton()) return;
 
   const [action, id] = interaction.customId.split("_");
   const req = pending.get(id);
-
   if (!req) return;
 
   const member = await interaction.guild.members.fetch(req.userId);
@@ -241,13 +266,32 @@ client.on("interactionCreate", async (interaction) => {
     await member.roles.add(RUOLI[req.type]);
   }
 
+  const status = action === "accetta" ? "ACCETTATA" : "RIFIUTATA";
+
+  const logEmbed = new EmbedBuilder()
+    .setTitle("📋 ESITO PATENTE")
+    .setColor("#a81900")
+    .addFields(
+      { name: "👤 Utente", value: `<@${req.userId}>` },
+      { name: "🚗 Patente", value: req.type },
+      { name: "📊 Stato", value: status },
+      { name: "👮 Staff", value: `<@${interaction.user.id}>` }
+    );
+
+  const staff = await client.channels.fetch(CANALE_STAFF);
+
+  await staff.send({ embeds: [logEmbed] });
+
+  await staff.messages.fetch(req.messageId).then(m => m.delete()).catch(() => {});
+
   const user = await client.users.fetch(req.userId);
 
   await user.send({
     embeds: [
       new EmbedBuilder()
-        .setTitle(action === "accetta" ? "✔ PATENTE APPROVATA" : "❌ PATENTE RIFIUTATA")
-        .setDescription(`Patente: **${req.type}**`)
+        .setTitle(`✔ PATENTE ${status}`)
+        .setColor(action === "accetta" ? "Green" : "Red")
+        .setDescription(`La tua patente **${req.type}** è stata ${status.toLowerCase()}`)
     ]
   }).catch(() => {});
 
