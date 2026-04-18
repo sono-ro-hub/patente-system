@@ -39,7 +39,7 @@ const RUOLI = {
 const userData = new Map();
 const pending = new Map();
 
-// ================= DOMANDE (5 SOLO - STABILI) =================
+// ================= DOMANDE =================
 const QUESTIONS = {
   A: [
     "Casco obbligatorio quando si guida una moto?",
@@ -70,29 +70,25 @@ client.once("ready", async () => {
 
   const embed = new EmbedBuilder()
     .setColor("#0B1F3A")
-    .setDescription(`•  🏛️ Dipartimento Trasporti — __Sud Italy RP__
+    .setDescription(`• 🏛️ Dipartimento Trasporti — __Sud Italy RP__
 
 Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
 
 ━━━━━━━━━━━━━━━━━━
-📋Tipi di patente
-__🅰️ Patente A__
-Consente la guida di __motocicli__ e veicoli a due ruote.
-__🅱️ Patente B__
-Permette di guidare __autovetture__ e veicoli leggeri.
-__🅲 Patente C-D__
-Permette di guidare __camion__, __pullman__ o __autobus__.
+📋 Tipi di patente
+🅰️ Patente A → moto  
+🅱️ Patente B → auto  
+🅲 Patente C-D → camion/bus  
 
 ━━━━━━━━━━━━━━━━━━
-📝Condizioni richieste
-
-• Essere un __cittadino__ registrato e approvato  
-• Avere un __comportamento civile__  
-• Non essere __soggetto a sospensioni__  
-• Conoscere le norme di circolazione  
+📝 Requisiti
+• cittadino registrato  
+• comportamento corretto  
+• nessuna sospensione  
+• conoscenza regole  
 
 ━━━━━━━━━━━━━━━━━━
-⚠️ Il mancato rispetto comporterà il rifiuto automatico.`);
+⚠️ Violazioni = rifiuto automatico`);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -144,23 +140,23 @@ client.on("interactionCreate", async (interaction) => {
 
       userData.set(interaction.user.id, { type });
 
+      const q = QUESTIONS[type];
+
       const modal = new ModalBuilder()
         .setCustomId("quiz")
         .setTitle("Quiz Patente");
 
-      const q = QUESTIONS[type];
-
-      const rows = q.map((text, i) =>
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder()
-            .setCustomId(`q${i}`)
-            .setLabel(text.slice(0, 45))
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true)
+      modal.addComponents(
+        q.map((text, i) =>
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder()
+              .setCustomId(`q${i}`)
+              .setLabel(text.slice(0, 45))
+              .setStyle(TextInputStyle.Short)
+              .setRequired(true)
+          )
         )
       );
-
-      modal.addComponents(rows);
 
       return interaction.showModal(modal);
     }
@@ -186,14 +182,14 @@ client.on("interactionCreate", async (interaction) => {
       });
     }
 
-    // ================= MOTIVO =================
+    // ================= BOTTONI =================
     if (interaction.isButton()) {
-      const [action, id] = interaction.customId.split("_");
-      const req = pending.get(id);
+      const [action, userId] = interaction.customId.split("_");
+      const req = pending.get(userId);
       if (!req) return;
 
       const modal = new ModalBuilder()
-        .setCustomId(`motivo_${action}_${id}`)
+        .setCustomId(`motivo_${action}_${userId}`)
         .setTitle("Motivo obbligatorio");
 
       modal.addComponents(
@@ -211,14 +207,13 @@ client.on("interactionCreate", async (interaction) => {
 
     // ================= FINAL =================
     if (interaction.isModalSubmit() && interaction.customId.startsWith("motivo_")) {
-      const [, action, id] = interaction.customId.split("_");
-      const req = pending.get(id);
+      const [, action, userId] = interaction.customId.split("_");
+      const req = pending.get(userId);
       if (!req) return;
 
       const reason = interaction.fields.getTextInputValue("reason");
 
-      const guild = interaction.guild;
-      const member = await guild.members.fetch(req.userId).catch(() => null);
+      const member = await interaction.guild.members.fetch(req.userId).catch(() => null);
 
       const status = action === "accetta" ? "ACCETTATA" : "RIFIUTATA";
 
@@ -226,13 +221,13 @@ client.on("interactionCreate", async (interaction) => {
         .map((a, i) => `**${QUESTIONS[req.type][i]}**\n➡️ ${a}`)
         .join("\n\n");
 
-      const embed = new EmbedBuilder()
-        .setTitle("📄 ESITO PATENTE")
+      const log = new EmbedBuilder()
+        .setTitle("📋 ACCETTAZIONE DOCS PATENTE")
         .setColor("#a81900")
         .addFields(
           { name: "👤 Utente", value: `<@${req.userId}>` },
           { name: "🚗 Patente", value: req.type },
-          { name: "📊 Stato", value: status },
+          { name: "📊 Esito", value: status },
           { name: "📋 Q&A", value: qa.slice(0, 1024) },
           { name: "📝 Motivo", value: reason },
           { name: "👮 Staff", value: `<@${interaction.user.id}>` }
@@ -241,9 +236,8 @@ client.on("interactionCreate", async (interaction) => {
 
       const staff = await client.channels.fetch(CANALE_STAFF);
 
-      const msg = await staff.send({ embeds: [embed] });
+      const msg = await staff.send({ embeds: [log] });
 
-      // DELETE REQUEST MESSAGE (fix “sparisce esito utente”)
       const old = await staff.messages.fetch(req.messageId).catch(() => null);
       if (old) old.delete().catch(() => {});
 
@@ -253,14 +247,14 @@ client.on("interactionCreate", async (interaction) => {
 
       await interaction.reply({ content: "✔ Fatto", ephemeral: true });
 
-      pending.delete(id);
+      pending.delete(userId);
     }
   } catch (err) {
-    console.log("ERROR:", err);
+    console.log(err);
   }
 });
 
-// ================= FOTO FIX =================
+// ================= FOTO =================
 client.on("messageCreate", async (msg) => {
   if (msg.author.bot) return;
   if (msg.channel.id !== CANALE_FOTO) return;
@@ -271,13 +265,9 @@ client.on("messageCreate", async (msg) => {
   const att = msg.attachments.first();
   if (!att) return;
 
-  const id = Date.now().toString();
-
   const qa = data.answers
     .map((a, i) => `**${QUESTIONS[data.type][i]}**\n➡️ ${a}`)
     .join("\n\n");
-
-  const buffer = att.url;
 
   const staff = await client.channels.fetch(CANALE_STAFF);
 
@@ -290,6 +280,8 @@ client.on("messageCreate", async (msg) => {
       { name: "📋 Q&A", value: qa.slice(0, 1024) }
     )
     .setImage(att.url);
+
+  const id = msg.author.id;
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`accetta_${id}`).setLabel("ACCETTA").setStyle(ButtonStyle.Success),
