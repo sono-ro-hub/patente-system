@@ -11,6 +11,12 @@ const {
   TextInputStyle
 } = require("discord.js");
 
+const express = require("express");
+const app = express();
+
+app.get("/", (req, res) => res.send("Bot online"));
+app.listen(process.env.PORT || 3000);
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -19,14 +25,6 @@ const client = new Client({
     GatewayIntentBits.GuildMembers
   ]
 });
-
-// ================= EXPRESS (RENDER FIX) =================
-const express = require("express");
-const app = express();
-
-app.get("/", (req, res) => res.send("Bot online"));
-
-app.listen(process.env.PORT || 3000);
 
 // ================= CONFIG =================
 const CANALE_RICHIESTE = "1493595963942768860";
@@ -70,18 +68,43 @@ const QUESTIONS = {
 // ================= READY =================
 client.once("ready", async () => {
 
-  console.log("BOT ONLINE");
-
   const ch = await client.channels.fetch(CANALE_RICHIESTE);
 
   const embed = new EmbedBuilder()
-    .setColor("Blue")
-    .setDescription("• 🏛️ Dipartimento Trasporti — __Sud Italy RP__");
+    .setColor("#0B1F3A")
+    .setDescription(
+`• 🏛️ Dipartimento Trasporti — __Sud Italy RP__
+
+Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
+
+━━━━━━━━━━━━━━━━━━
+📋 Tipi di patente
+
+__🅰️ Patente A__
+Consente la guida di __motocicli__ e veicoli a due ruote.
+
+__🅱️ Patente B__
+Permette di guidare __autovetture__ e veicoli leggeri.
+
+__🅲 Patente C-D__
+Permette di guidare __camion__, __pullman__ o __autobus__.
+
+━━━━━━━━━━━━━━━━━━
+📝 Condizioni richieste
+
+• Essere un __cittadino__ registrato  
+• Avere un __comportamento civile__  
+• Non essere __sospeso__  
+• Conoscere le norme di circolazione  
+
+━━━━━━━━━━━━━━━━━━
+⚠️ Il mancato rispetto comporterà il rifiuto automatico.`
+    );
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId("start")
-      .setLabel("MODULI PATENTE")
+      .setLabel("INIZIA ESAME PATENTE")
       .setStyle(ButtonStyle.Primary)
   );
 
@@ -93,7 +116,7 @@ client.on("interactionCreate", async interaction => {
 
 try {
 
-  // START BUTTON
+  // START
   if (interaction.isButton() && interaction.customId === "start") {
 
     const menu = new ActionRowBuilder().addComponents(
@@ -108,13 +131,13 @@ try {
     );
 
     return interaction.reply({
-      content: "Seleziona patente:",
+      content: "📌 Seleziona il tipo di patente:",
       components: [menu],
       ephemeral: true
     });
   }
 
-  // SELECT MENU → QUIZ
+  // SELECT → QUIZ
   if (interaction.isStringSelectMenu()) {
 
     const type = interaction.values[0];
@@ -135,35 +158,30 @@ try {
           .setCustomId("q0")
           .setLabel(qList[0])
           .setStyle(TextInputStyle.Short)
-          .setRequired(true)
       ),
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
           .setCustomId("q1")
           .setLabel(qList[1])
           .setStyle(TextInputStyle.Short)
-          .setRequired(true)
       ),
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
           .setCustomId("q2")
           .setLabel(qList[2])
           .setStyle(TextInputStyle.Short)
-          .setRequired(true)
       ),
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
           .setCustomId("q3")
           .setLabel(qList[3])
           .setStyle(TextInputStyle.Short)
-          .setRequired(true)
       ),
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
           .setCustomId("q4")
           .setLabel(qList[4])
           .setStyle(TextInputStyle.Short)
-          .setRequired(true)
       )
     );
 
@@ -186,74 +204,6 @@ try {
       content: `📸 Invia la foto nel canale <#${CANALE_FOTO}>`,
       ephemeral: true
     });
-  }
-
-  // BOTTONI STAFF
-  if (
-    interaction.isButton() &&
-    (interaction.customId.startsWith("accetta_") || interaction.customId.startsWith("rifiuta_"))
-  ) {
-
-    const modal = new ModalBuilder()
-      .setCustomId(`motivo_${interaction.customId}`)
-      .setTitle("Motivo obbligatorio");
-
-    modal.addComponents(
-      new ActionRowBuilder().addComponents(
-        new TextInputBuilder()
-          .setCustomId("reason")
-          .setLabel("Scrivi il motivo")
-          .setStyle(TextInputStyle.Paragraph)
-          .setRequired(true)
-      )
-    );
-
-    return interaction.showModal(modal);
-  }
-
-  // APPROVAZIONE / RIFIUTO
-  if (interaction.isModalSubmit() && interaction.customId.startsWith("motivo_")) {
-
-    const full = interaction.customId.replace("motivo_", "");
-    const [action, id] = full.split("_");
-
-    const req = pending.get(id);
-    if (!req) return;
-
-    const reason = interaction.fields.getTextInputValue("reason");
-
-    const member = await interaction.guild.members.fetch(id).catch(() => null);
-
-    const qa = req.answers.map((a, i) =>
-      `**${QUESTIONS[req.type][i]}**\n${a}`
-    ).join("\n\n");
-
-    const embed = new EmbedBuilder()
-      .setTitle(action === "accetta" ? "📄 PATENTE APPROVATA" : "📄 PATENTE RIFIUTATA")
-      .setColor(action === "accetta" ? "Green" : "Red")
-      .addFields(
-        { name: "👤 Utente", value: `<@${id}>` },
-        { name: "🚗 Patente", value: req.type },
-        { name: "📋 Quiz", value: qa.slice(0, 1024) },
-        { name: "📝 Motivo", value: reason },
-        { name: "👮 Staff", value: `<@${interaction.user.id}>` }
-      )
-      .setImage("attachment://pagamento.png");
-
-    const staff = await client.channels.fetch(CANALE_STAFF);
-
-    await staff.send({
-      embeds: [embed],
-      files: [{ attachment: req.photo, name: "pagamento.png" }]
-    });
-
-    if (member && action === "accetta") {
-      await member.roles.add(RUOLI[req.type]);
-    }
-
-    pending.delete(id);
-
-    return interaction.reply({ content: "✔ Fatto", ephemeral: true });
   }
 
 } catch (err) {
@@ -292,10 +242,10 @@ try {
 
   const embed = new EmbedBuilder()
     .setTitle("📄 NUOVA RICHIESTA PATENTE")
-    .setDescription(`<@${msg.author.id}>`)
+    .setDescription(`👤 <@${msg.author.id}>`)
     .addFields(
       { name: "🚗 Patente", value: data.type },
-      { name: "📋 Domande e Risposte", value: qa.slice(0, 1024) },
+      { name: "📋 Risposte Quiz", value: qa.slice(0, 1024) },
       { name: "📸 Stato", value: "Foto ricevuta ✔" }
     )
     .setImage("attachment://pagamento.png");
