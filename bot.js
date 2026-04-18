@@ -296,19 +296,18 @@ const [, action, id] = interaction.customId.split("_");
 const req = pending.get(id);
 if (!req) return;
 
+const reason = interaction.fields.getTextInputValue("reason");
+
 const guild = interaction.guild;
 const member = await guild.members.fetch(id).catch(() => null);
 
 const status = action === "accetta" ? "ACCETTATA" : "RIFIUTATA";
 
-const staff = await client.channels.fetch(CANALE_STAFF);
-
-// ✅ FIX SICURO: elimina SEMPRE il modulo senza crash
+// 🔥 elimina messaggio staff (quello con bottoni)
 try {
-  const message = await staff.messages.fetch(req.messageId).catch(() => null);
-  if (message) await message.delete().catch(() => null);
+  await interaction.message.delete().catch(() => null);
 } catch (err) {
-  console.log("Errore eliminazione modulo:", err);
+  console.log("Errore eliminazione modulo staff:", err);
 }
 
 if (member && action === "accetta") {
@@ -317,15 +316,22 @@ await member.roles.add(RUOLI[req.type]);
 
 const user = await client.users.fetch(id);
 
+// 📩 DM UTENTE
 await user.send({
 embeds: [
 new EmbedBuilder()
 .setTitle(`📄 PATENTE ${status}`)
 .setColor(action === "accetta" ? "Green" : "Red")
-.addFields({
+.addFields(
+{
 name: "🚗 Patente",
 value: req.type
-})
+},
+{
+name: "📝 Motivo",
+value: reason
+}
+)
 ]
 }).catch(() => {});
 
