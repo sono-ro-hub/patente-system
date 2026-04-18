@@ -16,7 +16,8 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.DirectMessages
   ]
 });
 
@@ -34,54 +35,40 @@ const RUOLI = {
 const userData = new Map();
 const pending = new Map();
 
-require("http").createServer((req,res)=>res.end("OK"))
-.listen(process.env.PORT || 3000);
-
-// ================= DOMANDE =================
-const QUESTIONS = {
-A:[
-"Il casco è obbligatorio quando guidi la moto?",
-"I fari devono essere accesi anche di giorno?",
-"In curva bisogna rallentare prima di entrarci?",
-"Posso guidare senza guanti?",
-"Su strada bagnata la frenata è più lunga?"
-],
-B:[
-"Il casco è obbligatorio in auto?",
-"In città il limite è 50 km/h?",
-"La cintura va sempre allacciata?",
-"Posso sorpassare con linea continua?",
-"La distanza di sicurezza serve?"
-],
-CD:[
-"Limite camion in città?",
-"Cosa fai al semaforo rosso?",
-"Chi ha precedenza agli incroci?",
-"Quando accendi anabbaglianti?",
-"Come comportarsi con ambulanza?"
-]
-};
-
-// ================= SAFE REPLY =================
-const safeReply = async (interaction, data) => {
-  try {
-    if (interaction.replied || interaction.deferred) {
-      return await interaction.followUp(data);
-    }
-    return await interaction.reply(data);
-  } catch (e) {
-    console.log(e);
-  }
-};
-
 // ================= READY =================
 client.once("ready", async () => {
+
+  console.log("BOT ONLINE");
 
   const ch = await client.channels.fetch(CANALE_RICHIESTE);
 
   const embed = new EmbedBuilder()
     .setColor("#87CEFA")
-    .setDescription("Clicca per iniziare patente");
+    .setDescription(`•  🏛️ Dipartimento Trasporti — __Sud Italy RP__
+
+Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
+
+━━━━━━━━━━━━━━━━━━
+📋Tipi di patente
+__🅰️ Patente A__
+Consente la guida di __motocicli__ e veicoli a due ruote.
+
+__🅱️ Patente B__
+Permette di guidare __autovetture__ e veicoli leggeri.
+
+__🅲 Patente C-D__
+Permette di guidare __camion__, __pullman__ o __autobus__.
+
+━━━━━━━━━━━━━━━━━━
+__📝Condizioni richieste__
+
+• Essere un __cittadino__ registrato  
+• Avere un __comportamento civile__  
+• Non essere __sospeso__  
+• Conoscere le norme di circolazione  
+
+━━━━━━━━━━━━━━━━━━
+⚠️ Il mancato rispetto comporterà il rifiuto automatico.`);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -107,20 +94,14 @@ try {
 
     const options = [];
 
-    if (!member.roles.cache.has(RUOLI.A)) {
-      options.push({ label: "Patente A", value: "A" });
-    }
-    if (!member.roles.cache.has(RUOLI.B)) {
-      options.push({ label: "Patente B", value: "B" });
-    }
-    if (!member.roles.cache.has(RUOLI.CD)) {
-      options.push({ label: "Patente C-D", value: "CD" });
-    }
+    if (!member.roles.cache.has(RUOLI.A)) options.push({ label: "Patente A", value: "A" });
+    if (!member.roles.cache.has(RUOLI.B)) options.push({ label: "Patente B", value: "B" });
+    if (!member.roles.cache.has(RUOLI.CD)) options.push({ label: "Patente C-D", value: "CD" });
 
     if (options.length === 0) {
-      return safeReply(interaction, {
+      return interaction.reply({
         content: "❌ Hai già tutte le patenti.",
-        flags: 64
+        ephemeral: true
       });
     }
 
@@ -131,10 +112,10 @@ try {
         .addOptions(options)
     );
 
-    return safeReply(interaction, {
+    return interaction.reply({
       content: "Seleziona patente:",
       components: [menu],
-      flags: 64
+      ephemeral: true
     });
   }
 
@@ -150,9 +131,10 @@ try {
 
     const modal = new ModalBuilder()
       .setCustomId("quiz")
-      .setTitle("Quiz");
+      .setTitle("Quiz Patente");
 
-    QUESTIONS[type].forEach((q, i) => {
+    ["Domanda 1","Domanda 2","Domanda 3","Domanda 4","Domanda 5"]
+    .forEach((q,i)=>{
       modal.addComponents(
         new ActionRowBuilder().addComponents(
           new TextInputBuilder()
@@ -172,15 +154,15 @@ try {
     const data = userData.get(interaction.user.id);
     if (!data) return;
 
-    data.answers = QUESTIONS[data.type].map((_, i) =>
+    data.answers = [0,1,2,3,4].map(i =>
       interaction.fields.getTextInputValue(`q${i}`)
     );
 
     data.waitingPhoto = true;
 
-    return safeReply(interaction, {
-      content: `📸 Invia foto in <#${CANALE_FOTO}>`,
-      flags: 64
+    return interaction.reply({
+      content: `📸 Invia la foto nel canale <#${CANALE_FOTO}>`,
+      ephemeral: true
     });
   }
 
@@ -205,29 +187,14 @@ try {
 
   const id = msg.author.id + Date.now();
 
-  const qa = data.answers.map((a,i)=>
-`• ${QUESTIONS[data.type][i]}
-➜ ${a}`
-  ).join("\n\n");
-
   const embed = new EmbedBuilder()
     .setTitle("📄 RICHIESTA PATENTE")
     .setDescription(`<@${msg.author.id}>`)
-    .addFields({
-      name: "📋 Quiz",
-      value: qa
-    })
     .setImage(attachment.url);
 
   const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`accetta_${id}`)
-      .setLabel("ACCETTA")
-      .setStyle(ButtonStyle.Success),
-    new ButtonBuilder()
-      .setCustomId(`rifiuta_${id}`)
-      .setLabel("RIFIUTA")
-      .setStyle(ButtonStyle.Danger)
+    new ButtonBuilder().setCustomId(`accetta_${id}`).setLabel("ACCETTA").setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId(`rifiuta_${id}`).setLabel("RIFIUTA").setStyle(ButtonStyle.Danger)
   );
 
   const staff = await client.channels.fetch(CANALE_STAFF);
@@ -259,10 +226,7 @@ try {
 
   if (!interaction.isButton()) return;
 
-  if (!interaction.customId.includes("_")) return;
-
-  const [action, id] = interaction.customId.split("_");
-
+  const [action,id] = interaction.customId.split("_");
   if (!pending.has(id)) return;
 
   const modal = new ModalBuilder()
@@ -273,9 +237,8 @@ try {
     new ActionRowBuilder().addComponents(
       new TextInputBuilder()
         .setCustomId("reason")
-        .setLabel("Motivo")
+        .setLabel("Scrivi motivo")
         .setStyle(TextInputStyle.Paragraph)
-        .setRequired(true)
     )
   );
 
@@ -294,54 +257,48 @@ try {
   if (!interaction.isModalSubmit()) return;
   if (!interaction.customId.startsWith("motivo_")) return;
 
-  const [, action, id] = interaction.customId.split("_");
-
+  const [,action,id] = interaction.customId.split("_");
   const req = pending.get(id);
   if (!req) return;
 
   const reason = interaction.fields.getTextInputValue("reason");
 
-  const member = await interaction.guild.members.fetch(req.userId).catch(() => null);
+  const member = await interaction.guild.members.fetch(req.userId).catch(()=>null);
 
   const now = new Date().toLocaleString("it-IT", {
     timeZone: "Europe/Rome"
   });
 
-  const qa = req.answers.map((a,i)=>
-`**${QUESTIONS[req.type][i]}**
-${a}`
-  ).join("\n\n");
+  const staffChannel = await client.channels.fetch(CANALE_STAFF);
+  const msg = await staffChannel.messages.fetch(req.messageId);
+
+  await msg.delete().catch(()=>{});
+
+  if (member && action === "accetta") {
+    await member.roles.add(RUOLI[req.type]);
+  }
+
+  const user = await client.users.fetch(req.userId);
 
   const embed = new EmbedBuilder()
-    .setTitle(action === "accetta" ? "✅ APPROVATA" : "❌ RIFIUTATA")
+    .setTitle(action === "accetta" ? "✅ PATENTE APPROVATA" : "❌ PATENTE RIFIUTATA")
     .setColor(action === "accetta" ? "Green" : "Red")
-    .setDescription(`<@${req.userId}>`)
+    .setDescription(`👤 <@${req.userId}>`)
     .addFields(
       { name: "🚗 Patente", value: req.type },
-      { name: "📋 Quiz", value: qa },
       { name: "👮 Staff", value: `<@${interaction.user.id}>` },
       { name: "📝 Motivo", value: reason },
       { name: "🕒 Data", value: now }
     )
     .setImage(req.photo);
 
-  const staff = await client.channels.fetch(CANALE_STAFF);
-  const msg = await staff.messages.fetch(req.messageId);
-
-  await msg.edit({
-    embeds: [embed],
-    components: []
-  });
-
-  if (member && action === "accetta") {
-    await member.roles.add(RUOLI[req.type]);
-  }
+  await user.send({ embeds: [embed] }).catch(()=>{});
 
   pending.delete(id);
 
   await interaction.reply({
     content: "✔ Fatto",
-    flags: 64
+    ephemeral: true
   });
 
 } catch (err) {
