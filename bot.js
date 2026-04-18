@@ -118,37 +118,11 @@ client.on("interactionCreate", async (interaction) => {
 
       const member = interaction.member;
 
-      const options = [];
-
-      // 🔒 PATENTE A
-      options.push({
-        label: member.roles.cache.has(RUOLI.A)
-          ? "Patente A (GIÀ POSSEDUTA)"
-          : "Patente A",
-        value: "A",
-        description: "Moto e veicoli a due ruote",
-        disabled: member.roles.cache.has(RUOLI.A)
-      });
-
-      // 🔒 PATENTE B
-      options.push({
-        label: member.roles.cache.has(RUOLI.B)
-          ? "Patente B (GIÀ POSSEDUTA)"
-          : "Patente B",
-        value: "B",
-        description: "Auto e veicoli leggeri",
-        disabled: member.roles.cache.has(RUOLI.B)
-      });
-
-      // 🔒 PATENTE CD
-      options.push({
-        label: member.roles.cache.has(RUOLI.CD)
-          ? "Patente C-D (GIÀ POSSEDUTA)"
-          : "Patente C-D",
-        value: "CD",
-        description: "Camion e autobus",
-        disabled: member.roles.cache.has(RUOLI.CD)
-      });
+      const options = [
+        { label: "Patente A", value: "A", description: "Moto" },
+        { label: "Patente B", value: "B", description: "Auto" },
+        { label: "Patente C-D", value: "CD", description: "Camion / Bus" }
+      ];
 
       const menu = new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
@@ -164,20 +138,30 @@ client.on("interactionCreate", async (interaction) => {
       });
     }
 
-    // ================= SELECT =================
+    // ================= SELECT FIX DEFINITIVO =================
     if (
       interaction.isStringSelectMenu() &&
       interaction.customId === "select"
     ) {
 
       const type = interaction.values[0];
+      const member = interaction.member;
 
-      // 🔒 SICUREZZA
+      // 🔒 BLOCCO REALE (SERVER SIDE)
+      if (type === "A" && member.roles.cache.has(RUOLI.A)) {
+        return interaction.reply({ content: "❌ Hai già la Patente A", ephemeral: true });
+      }
+
+      if (type === "B" && member.roles.cache.has(RUOLI.B)) {
+        return interaction.reply({ content: "❌ Hai già la Patente B", ephemeral: true });
+      }
+
+      if (type === "CD" && member.roles.cache.has(RUOLI.CD)) {
+        return interaction.reply({ content: "❌ Hai già la Patente C-D", ephemeral: true });
+      }
+
       if (!QUESTIONS[type]) {
-        return interaction.reply({
-          content: "❌ Patente non valida o già posseduta",
-          ephemeral: true
-        });
+        return interaction.reply({ content: "❌ Patente non valida", ephemeral: true });
       }
 
       userData.set(interaction.user.id, {
@@ -246,83 +230,6 @@ client.on("interactionCreate", async (interaction) => {
 
       return interaction.reply({
         content: `📸 Vai nel canale <#${CANALE_FOTO}> e carica la foto del pagamento.`,
-        ephemeral: true
-      });
-    }
-
-    // ================= STAFF =================
-    if (interaction.isButton()) {
-
-      const [action, userId] = interaction.customId.split("_");
-      if (!action || !userId) return;
-
-      const modal = new ModalBuilder()
-        .setCustomId(`motivo_${action}_${userId}`)
-        .setTitle("Motivo decisione");
-
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder()
-            .setCustomId("reason")
-            .setLabel("Scrivi il motivo")
-            .setStyle(TextInputStyle.Paragraph)
-            .setRequired(true)
-        )
-      );
-
-      return interaction.showModal(modal);
-    }
-
-    // ================= FINAL =================
-    if (interaction.isModalSubmit() && interaction.customId.startsWith("motivo_")) {
-
-      const [, action, userId] = interaction.customId.split("_");
-
-      const req = pending.get(userId);
-      if (!req) {
-        return interaction.reply({
-          content: "❌ Richiesta non trovata",
-          ephemeral: true
-        });
-      }
-
-      const reason = interaction.fields.getTextInputValue("reason");
-
-      const member = await interaction.guild.members.fetch(userId).catch(() => null);
-
-      const decision = action === "accetta" ? "APPROVATA" : "RIFIUTATA";
-
-      const staffEmbed = new EmbedBuilder()
-        .setTitle(`📄 PATENTE ${decision}`)
-        .setColor(decision === "APPROVATA" ? "Green" : "Red")
-        .addFields(
-          { name: "👤 Utente", value: `<@${userId}>` },
-          { name: "🚗 Patente", value: req.type },
-          { name: "📝 Motivo", value: reason },
-          { name: "👮 Staff", value: `<@${interaction.user.id}>` }
-        );
-
-      const staff = await client.channels.fetch(CANALE_STAFF);
-      await staff.send({ embeds: [staffEmbed] });
-
-      if (member && action === "accetta") {
-        await member.roles.add(RUOLI[req.type]);
-      }
-
-      const user = await client.users.fetch(userId);
-      await user.send({
-        embeds: [
-          new EmbedBuilder()
-            .setTitle(`📄 Patente ${decision}`)
-            .setColor(decision === "APPROVATA" ? "Green" : "Red")
-            .setDescription(`La tua richiesta è stata **${decision}**`)
-        ]
-      }).catch(() => {});
-
-      pending.delete(userId);
-
-      return interaction.reply({
-        content: "✔ Fatto",
         ephemeral: true
       });
     }
