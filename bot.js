@@ -34,408 +34,231 @@ const RUOLI = {
 const userData = new Map();
 const pending = new Map();
 
-require("http").createServer((req,res)=>res.end("OK"))
+require("http").createServer((req, res) => res.end("OK"))
 .listen(process.env.PORT || 3000);
 
 // ================= DOMANDE =================
 const QUESTIONS = {
-A:[
-"Il casco è obbligatorio quando guidi la moto?",
-"I fari devono essere accesi anche di giorno?",
-"In curva bisogna rallentare prima di entrarci?",
-"Posso guidare senza guanti?",
-"Su strada bagnata la frenata è più lunga?"
-],
-B:[
-"Il casco è obbligatorio in auto?",
-"In città il limite è 50 km/h?",
-"La cintura va sempre allacciata?",
-"Posso sorpassare con linea continua?",
-"La distanza di sicurezza serve?"
-],
-CD:[
-"Limite camion in città?",
-"Cosa fai al semaforo rosso?",
-"Chi ha precedenza agli incroci?",
-"Quando accendi anabbaglianti?",
-"Come comportarsi con ambulanza?"
-]
+  A: [
+    "Il casco è obbligatorio quando guidi la moto?",
+    "I fari devono essere accesi anche di giorno?",
+    "In curva bisogna rallentare prima di entrarci?",
+    "Posso guidare senza guanti?",
+    "Su strada bagnata la frenata è più lunga?"
+  ],
+  B: [
+    "Il casco è obbligatorio in auto?",
+    "In città il limite è 50 km/h?",
+    "La cintura va sempre allacciata?",
+    "Posso sorpassare con linea continua?",
+    "La distanza di sicurezza serve?"
+  ],
+  CD: [
+    "Limite camion in città?",
+    "Cosa fai al semaforo rosso?",
+    "Chi ha precedenza agli incroci?",
+    "Quando accendi anabbaglianti?",
+    "Come comportarsi con ambulanza?"
+  ]
 };
 
 // ================= READY =================
-client.once("ready", async()=>{
+client.once("ready", async () => {
+  console.log("BOT ONLINE");
 
-const ch=await client.channels.fetch(CANALE_RICHIESTE);
+  const ch = await client.channels.fetch(CANALE_RICHIESTE);
 
-const embed=new EmbedBuilder()
-.setColor("Blue")
-.setDescription("• 🏛️ Dipartimento Trasporti — __Sud Italy RP__");
+  const embed = new EmbedBuilder()
+    .setColor("Blue")
+    .setDescription("• 🏛️ Dipartimento Trasporti — __Sud Italy RP__");
 
-const row=new ActionRowBuilder().addComponents(
-new ButtonBuilder()
-.setCustomId("start")
-.setLabel("MODULI PATENTE")
-.setStyle(ButtonStyle.Primary)
-);
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("start")
+      .setLabel("MODULI PATENTE")
+      .setStyle(ButtonStyle.Primary)
+  );
 
-await ch.send({
-embeds:[embed],
-components:[row]
-});
+  await ch.send({
+    embeds: [embed],
+    components: [row]
+  });
 
+  // EMBED COMPLETO ORIGINALE (NON MODIFICATO)
+  const embed2 = new EmbedBuilder()
+    .setColor("#87CEFA")
+    .setDescription(`•  🏛️ Dipartimento Trasporti — __Sud Italy RP__
+
+Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
+
+━━━━━━━━━━━━━━━━━━
+📋Tipi di patente
+__🅰️ Patente A__
+Consente la guida di __motocicli__ e veicoli a due ruote.
+
+__🅱️ Patente B__
+Permette di guidare __autovetture__ e veicoli leggeri.
+
+__🅲 Patente C-D__
+Permette di far guidare __camion__, __pullman__ o __autobus__, utili per il trasporto delle merci e delle persone.
+
+━━━━━━━━━━━━━━━━━━
+__📝Condizioni richieste__
+
+• Essere un __cittadino__ registrato e approvato all’interno del server  
+• Avere un __comportamento civile__ e rispettoso delle regole RP  
+• Non essere __soggetto__ a __sospensioni__ o provvedimenti attivi  
+• Dimostrare una __conoscenza adeguata__ delle norme di circolazione
+
+━━━━━━━━━━━━━━━━━━
+⚠️ Il mancato rispetto dei requisiti comporterà il rifiuto automatico della richiesta.
+
+**📄INFORMAZIONI PATENTE📄**
+__**INFORMAZIONI PATENTE**__
+
+***Ecco alcuni step per fare la patente in maniera corretta***
+
+**1) Inviare il quiz per la patente che volete fare e attendere che lo staff member lo corregga***
+
+**2) Inviare 3k in game all'id Lessimanuardi123 e inviare la foto su PAGAMENTI PATENTE e attendere che lo staff member applichi la tipologia di patente desiderata***
+
+**3) Invitiamo tutti a fare la patente per viaggiare in maniera sicura e in maniera indipendente, Il consiglio che possiamo è quando vi ferma un agente delle FDO per una controllo dovete fornire il nome discord e per vedere se avete la tipologia di patente per la quale state usando il veicolo se vi vedranno senza patente dovrete pagare __**1k di multa**__`
+    );
+
+  await ch.send({ embeds: [embed2] });
 });
 
 // ================= INTERACTION =================
-client.on("interactionCreate", async interaction=>{
+client.on("interactionCreate", async interaction => {
+  try {
 
-try{
+    if (interaction.isButton() && interaction.customId === "start") {
+      const menu = new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId("select")
+          .setPlaceholder("Seleziona patente")
+          .addOptions([
+            { label: "Patente A", value: "A" },
+            { label: "Patente B", value: "B" },
+            { label: "Patente C-D", value: "CD" }
+          ])
+      );
 
-if(interaction.isButton() &&
-interaction.customId==="start"){
+      return interaction.reply({
+        content: "Seleziona patente:",
+        components: [menu],
+        ephemeral: true
+      });
+    }
 
-const menu=
-new ActionRowBuilder().addComponents(
-new StringSelectMenuBuilder()
-.setCustomId("select")
-.setPlaceholder("Seleziona patente")
-.addOptions([
-{label:"Patente A",value:"A"},
-{label:"Patente B",value:"B"},
-{label:"Patente C-D",value:"CD"}
-])
-);
+    if (interaction.isStringSelectMenu()) {
+      const type = interaction.values[0];
 
-return interaction.reply({
-content:"Seleziona patente:",
-components:[menu],
-ephemeral:true
-});
+      userData.set(interaction.user.id, {
+        type,
+        answers: []
+      });
 
-}
+      const modal = new ModalBuilder()
+        .setCustomId("quiz")
+        .setTitle("Quiz Patente");
 
-if(interaction.isStringSelectMenu()){
+      QUESTIONS[type].forEach((q, i) => {
+        modal.addComponents(
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder()
+              .setCustomId(`q${i}`)
+              .setLabel(q)
+              .setStyle(TextInputStyle.Short)
+              .setRequired(true)
+          )
+        );
+      });
 
-const type=interaction.values[0];
+      return interaction.showModal(modal);
+    }
 
-userData.set(
-interaction.user.id,
-{
-type,
-answers:[]
-}
-);
+    if (interaction.isModalSubmit() && interaction.customId === "quiz") {
+      const data = userData.get(interaction.user.id);
+      if (!data) return;
 
-const modal=
-new ModalBuilder()
-.setCustomId("quiz")
-.setTitle("Quiz Patente");
+      data.answers = QUESTIONS[data.type].map((_, i) =>
+        interaction.fields.getTextInputValue(`q${i}`)
+      );
 
-QUESTIONS[type].forEach((q,i)=>{
+      data.waitingPhoto = true;
 
-modal.addComponents(
-new ActionRowBuilder().addComponents(
-new TextInputBuilder()
-.setCustomId(`q${i}`)
-.setLabel(q)
-.setStyle(TextInputStyle.Short)
-.setRequired(true)
-)
-);
+      return interaction.reply({
+        content: `📸 Vai nel canale <#${CANALE_FOTO}> e clicca il + per allegare la foto del pagamento.`,
+        ephemeral: true
+      });
+    }
 
-});
-
-return interaction.showModal(modal);
-
-}
-
-if(
-interaction.isModalSubmit() &&
-interaction.customId==="quiz"
-){
-
-const data=
-userData.get(
-interaction.user.id
-);
-
-if(!data) return;
-
-data.answers=
-QUESTIONS[data.type].map((q,i)=>
-interaction.fields.getTextInputValue(`q${i}`)
-);
-
-data.waitingPhoto=true;
-
-return interaction.reply({
-content:"📸 Vai nel canale <#1494066451152240650> e clicca il + per allegare la foto del pagamento.",
-ephemeral:true
-});
-
-}
-
-if(
-interaction.isButton() &&
-(
-interaction.customId.startsWith("accetta_") ||
-interaction.customId.startsWith("rifiuta_")
-)
-){
-
-const modal=
-new ModalBuilder()
-.setCustomId(
-`motivo_${interaction.customId}`
-)
-.setTitle("Motivo obbligatorio");
-
-modal.addComponents(
-new ActionRowBuilder().addComponents(
-new TextInputBuilder()
-.setCustomId("reason")
-.setLabel("Scrivi il motivo")
-.setStyle(TextInputStyle.Paragraph)
-.setRequired(true)
-)
-);
-
-return interaction.showModal(modal);
-
-}
-
-if(
-interaction.isModalSubmit() &&
-interaction.customId.startsWith("motivo_")
-){
-
-const full=
-interaction.customId.replace(
-"motivo_",""
-);
-
-const[action,id]=
-full.split("_");
-
-const req=
-pending.get(id);
-
-if(!req) return;
-
-const reason=
-interaction.fields.getTextInputValue(
-"reason"
-);
-
-const member=
-await interaction.guild.members
-.fetch(id)
-.catch(()=>null);
-
-const qa=
-req.answers.map((a,i)=>
-`**${QUESTIONS[req.type][i]}**
-${a}`
-).join("\n\n");
-
-const decision=
-action==="accetta"
-?"APPROVATA"
-:"RIFIUTATA";
-
-const embed=
-new EmbedBuilder()
-.setTitle(
-`📄 PATENTE ${decision}`
-)
-.setColor(
-decision==="APPROVATA"
-?"Green"
-:"Red"
-)
-.addFields(
-{name:"👤 Utente",value:`<@${id}>`},
-{name:"🚗 Patente",value:req.type},
-{
-name:"📋 Quiz",
-value:qa.slice(0,1024)
-},
-{name:"📝 Motivo",value:reason},
-{
-name:"👮 Staff",
-value:`<@${interaction.user.id}>`
-}
-)
-.setImage(
-"attachment://pagamento.png"
-);
-
-const staff=
-await client.channels.fetch(
-CANALE_STAFF
-);
-
-await staff.send({
-embeds:[embed],
-files:[
-{
-attachment:req.photo,
-name:"pagamento.png"
-}
-]
-});
-
-if(member){
-
-if(action==="accetta"){
-await member.roles.add(
-RUOLI[req.type]
-);
-}
-
-}
-
-pending.delete(id);
-
-return interaction.reply({
-content:"✔ Fatto",
-ephemeral:true
-});
-
-}
-
-}catch(err){
-console.log(err);
-}
-
+  } catch (err) {
+    console.log(err);
+  }
 });
 
 // ================= FOTO =================
-client.on("messageCreate", async msg=>{
+client.on("messageCreate", async msg => {
+  try {
+    if (msg.author.bot) return;
+    if (msg.channel.id !== CANALE_FOTO) return;
 
-try{
+    const data = userData.get(msg.author.id);
+    if (!data || !data.waitingPhoto) return;
 
-if(msg.author.bot) return;
+    const attachment = msg.attachments.first();
+    if (!attachment) return;
 
-// SOLO CANALE FOTO
-if(
-msg.channel.id!==CANALE_FOTO
-) return;
+    const res = await fetch(attachment.url);
+    const buffer = Buffer.from(await res.arrayBuffer());
 
-const data=
-userData.get(msg.author.id);
+    pending.set(msg.author.id, {
+      type: data.type,
+      answers: data.answers,
+      photo: buffer
+    });
 
-if(!data || !data.waitingPhoto)
-return;
+    userData.delete(msg.author.id);
 
-const attachment=
-msg.attachments.first();
+    const qa = data.answers
+      .map((a, i) => `**${QUESTIONS[data.type][i]}**\n${a}`)
+      .join("\n\n");
 
-if(!attachment) return;
+    const embed = new EmbedBuilder()
+      .setTitle("📄 NUOVA RICHIESTA PATENTE")
+      .setDescription(`<@${msg.author.id}>`)
+      .addFields(
+        { name: "🚗 Patente", value: data.type },
+        { name: "📋 Domande e Risposte", value: qa.slice(0, 1024) },
+        { name: "📸 Stato", value: "Foto ricevuta ✔" }
+      )
+      .setImage("attachment://pagamento.png");
 
-const res=
-await fetch(
-attachment.url
-);
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`accetta_${msg.author.id}`)
+        .setLabel("ACCETTA")
+        .setStyle(ButtonStyle.Success),
 
-const buffer=
-Buffer.from(
-await res.arrayBuffer()
-);
+      new ButtonBuilder()
+        .setCustomId(`rifiuta_${msg.author.id}`)
+        .setLabel("RIFIUTA")
+        .setStyle(ButtonStyle.Danger)
+    );
 
-// ❌ NON CANCELLA PIÙ FOTO
+    const staff = await client.channels.fetch(CANALE_STAFF);
 
-pending.set(
-msg.author.id,
-{
-type:data.type,
-answers:data.answers,
-photo:buffer
-}
-);
+    await staff.send({
+      embeds: [embed],
+      components: [row],
+      files: [{ attachment: buffer, name: "pagamento.png" }]
+    });
 
-userData.delete(
-msg.author.id
-);
-
-// DOMANDE + RISPOSTE
-const qa =
-data.answers.map((a,i)=>
-`**${QUESTIONS[data.type][i]}**
-${a}`
-).join("\n\n");
-
-const embed=
-new EmbedBuilder()
-.setTitle(
-"📄 NUOVA RICHIESTA PATENTE"
-)
-.setDescription(
-`<@${msg.author.id}>`
-)
-.addFields(
-{
-name:"🚗 Patente",
-value:data.type
-},
-{
-name:"📋 Domande e Risposte",
-value:qa.slice(0,1024)
-},
-{
-name:"📸 Stato",
-value:"Foto ricevuta ✔"
-}
-)
-.setImage(
-"attachment://pagamento.png"
-);
-
-const row=
-new ActionRowBuilder()
-.addComponents(
-
-new ButtonBuilder()
-.setCustomId(
-`accetta_${msg.author.id}`
-)
-.setLabel("ACCETTA")
-.setStyle(
-ButtonStyle.Success
-),
-
-new ButtonBuilder()
-.setCustomId(
-`rifiuta_${msg.author.id}`
-)
-.setLabel("RIFIUTA")
-.setStyle(
-ButtonStyle.Danger
-)
-
-);
-
-const staff=
-await client.channels.fetch(
-CANALE_STAFF
-);
-
-await staff.send({
-embeds:[embed],
-components:[row],
-files:[
-{
-attachment:buffer,
-name:"pagamento.png"
-}
-]
+  } catch (err) {
+    console.log(err);
+  }
 });
 
-}catch(err){
-console.log(err);
-}
-
-});
-
-client.login(
-process.env.TOKEN
-);
+client.login(process.env.TOKEN);
