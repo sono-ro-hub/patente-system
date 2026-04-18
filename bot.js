@@ -71,7 +71,7 @@ client.once("ready", async () => {
 
   const embed = new EmbedBuilder()
     .setColor("#87CEFA")
-    .setDescription(`•  🏛️ Dipartimento Trasporti — __Sud Italy RP__
+    .setDescription(`• 🏛️ Dipartimento Trasporti — __Sud Italy RP__
 
 Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
 
@@ -124,31 +124,40 @@ client.on("interactionCreate", async interaction => {
 
 try {
 
-  // ================= START + BLOCCO PATENTE =================
+  // ================= START (FIX CORRETTO) =================
   if (interaction.isButton() && interaction.customId === "start") {
 
     const member = await interaction.guild.members.fetch(interaction.user.id);
 
-    const hasLicense =
-      member.roles.cache.has(RUOLI.A) ||
-      member.roles.cache.has(RUOLI.B) ||
-      member.roles.cache.has(RUOLI.CD);
+    const requestedTypes = ["A", "B", "CD"];
 
-    if (hasLicense) {
-      return interaction.reply({
-        content: "❌ Hai già una patente. Non puoi rifarla.",
-        ephemeral: true
-      });
-    }
+    // controlla SOLO se ha già quella specifica patente
+    const hasAll = {
+      A: member.roles.cache.has(RUOLI.A),
+      B: member.roles.cache.has(RUOLI.B),
+      CD: member.roles.cache.has(RUOLI.CD)
+    };
 
     const menu = new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
         .setCustomId("select")
         .setPlaceholder("Seleziona patente")
         .addOptions([
-          { label: "Patente A", value: "A" },
-          { label: "Patente B", value: "B" },
-          { label: "Patente C-D", value: "CD" }
+          {
+            label: hasAll.A ? "Patente A (GIÀ POSSEDUTA)" : "Patente A",
+            value: "A",
+            description: hasAll.A ? "Già possiedi questa patente" : "Moto"
+          },
+          {
+            label: hasAll.B ? "Patente B (GIÀ POSSEDUTA)" : "Patente B",
+            value: "B",
+            description: hasAll.B ? "Già possiedi questa patente" : "Auto"
+          },
+          {
+            label: hasAll.CD ? "Patente C-D (GIÀ POSSEDUTA)" : "Patente C-D",
+            value: "CD",
+            description: hasAll.CD ? "Già possiedi questa patente" : "Camion/Bus"
+          }
         ])
     );
 
@@ -159,10 +168,19 @@ try {
     });
   }
 
-  // ================= SELECT =================
+  // ================= BLOCCO PER SINGOLA PATENTE =================
   if (interaction.isStringSelectMenu()) {
 
     const type = interaction.values[0];
+
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+
+    if (member.roles.cache.has(RUOLI[type])) {
+      return interaction.reply({
+        content: "❌ Hai già questa patente e non puoi rifarla.",
+        ephemeral: true
+      });
+    }
 
     userData.set(interaction.user.id, {
       type,
@@ -206,7 +224,7 @@ try {
     });
   }
 
-  // ================= BOTTONI STAFF =================
+  // ================= STAFF BUTTON =================
   if (interaction.isButton()) {
 
     if (
@@ -232,7 +250,7 @@ try {
     }
   }
 
-  // ================= MOTIVO + EMBED ORDINATO =================
+  // ================= FINAL EMBED =================
   if (
     interaction.isModalSubmit() &&
     interaction.customId.startsWith("motivo_")
@@ -261,12 +279,12 @@ try {
       .setTitle(`📄 PATENTE ${decision}`)
       .setColor(decision === "APPROVATA" ? "Green" : "Red")
       .addFields(
-        { name: "👤 Utente", value: `<@${id}>`, inline: false },
+        { name: "👤 Utente", value: `<@${id}>` },
         { name: "🚗 Patente", value: req.type, inline: true },
         { name: "👮 Staff", value: `<@${interaction.user.id}>`, inline: true },
-        { name: "━━━━━━━━━━━━", value: " ", inline: false },
-        { name: "📋 Quiz", value: qa.slice(0, 1024), inline: false },
-        { name: "📝 Motivo decisione", value: reason, inline: false }
+        { name: "━━━━━━━━━━━━", value: " " },
+        { name: "📋 Quiz", value: qa.slice(0, 1024) },
+        { name: "📝 Motivo", value: reason }
       )
       .setImage("attachment://pagamento.png");
 
