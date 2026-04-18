@@ -96,6 +96,7 @@ try {
 
   if (!interaction.isRepliable()) return;
 
+  // START
   if (interaction.isButton() && interaction.customId === "start") {
 
     const member = interaction.member;
@@ -127,6 +128,7 @@ try {
     });
   }
 
+  // SELECT
   if (interaction.isStringSelectMenu()) {
 
     const type = interaction.values[0];
@@ -155,6 +157,7 @@ try {
     return interaction.showModal(modal);
   }
 
+  // QUIZ
   if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
     const data = userData.get(interaction.user.id);
