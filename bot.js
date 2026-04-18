@@ -138,30 +138,19 @@ client.on("interactionCreate", async (interaction) => {
       });
     }
 
-    // ================= SELECT FIX DEFINITIVO =================
+    // ================= SELECT =================
     if (
       interaction.isStringSelectMenu() &&
       interaction.customId === "select"
     ) {
 
       const type = interaction.values[0];
-      const member = interaction.member;
-
-      // 🔒 BLOCCO REALE (SERVER SIDE)
-      if (type === "A" && member.roles.cache.has(RUOLI.A)) {
-        return interaction.reply({ content: "❌ Hai già la Patente A", ephemeral: true });
-      }
-
-      if (type === "B" && member.roles.cache.has(RUOLI.B)) {
-        return interaction.reply({ content: "❌ Hai già la Patente B", ephemeral: true });
-      }
-
-      if (type === "CD" && member.roles.cache.has(RUOLI.CD)) {
-        return interaction.reply({ content: "❌ Hai già la Patente C-D", ephemeral: true });
-      }
 
       if (!QUESTIONS[type]) {
-        return interaction.reply({ content: "❌ Patente non valida", ephemeral: true });
+        return interaction.reply({
+          content: "❌ Patente non valida",
+          ephemeral: true
+        });
       }
 
       userData.set(interaction.user.id, {
@@ -171,47 +160,26 @@ client.on("interactionCreate", async (interaction) => {
 
       const q = QUESTIONS[type];
 
+      // ================= FIX DEFINITIVO MODAL =================
       const modal = new ModalBuilder()
         .setCustomId("quiz")
         .setTitle("Quiz Patente");
 
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder()
-            .setCustomId("q0")
-            .setLabel(q[0])
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true)
-        ),
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder()
-            .setCustomId("q1")
-            .setLabel(q[1])
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true)
-        ),
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder()
-            .setCustomId("q2")
-            .setLabel(q[2])
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true)
-        ),
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder()
-            .setCustomId("q3")
-            .setLabel(q[3])
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true)
-        ),
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder()
-            .setCustomId("q4")
-            .setLabel(q[4])
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true)
-        )
-      );
+      const rows = [];
+
+      for (let i = 0; i < 5; i++) {
+        rows.push(
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder()
+              .setCustomId(`q${i}`)
+              .setLabel(q[i].slice(0, 45)) // IMPORTANTE: limite Discord
+              .setStyle(TextInputStyle.Short)
+              .setRequired(true)
+          )
+        );
+      }
+
+      modal.addComponents(rows);
 
       return interaction.showModal(modal);
     }
@@ -235,7 +203,7 @@ client.on("interactionCreate", async (interaction) => {
     }
 
   } catch (err) {
-    console.log(err);
+    console.log("ERROR:", err);
   }
 
 });
