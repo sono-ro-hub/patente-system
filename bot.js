@@ -62,7 +62,7 @@ CD:[
 ]
 };
 
-// ================= READY (AGGIUNTO SENZA TOCCARE STRUTTURA) =================
+// ================= READY =================
 client.once("ready", async () => {
 
   console.log("BOT ONLINE");
@@ -116,10 +116,7 @@ __**INFORMAZIONI PATENTE**__
       .setStyle(ButtonStyle.Primary)
   );
 
-  await ch.send({
-    embeds: [embed],
-    components: [row]
-  });
+  await ch.send({ embeds: [embed], components: [row] });
 });
 
 // ================= INTERACTION =================
@@ -127,7 +124,22 @@ client.on("interactionCreate", async interaction => {
 
 try {
 
+  // ================= START + BLOCCO PATENTE =================
   if (interaction.isButton() && interaction.customId === "start") {
+
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+
+    const hasLicense =
+      member.roles.cache.has(RUOLI.A) ||
+      member.roles.cache.has(RUOLI.B) ||
+      member.roles.cache.has(RUOLI.CD);
+
+    if (hasLicense) {
+      return interaction.reply({
+        content: "❌ Hai già una patente. Non puoi rifarla.",
+        ephemeral: true
+      });
+    }
 
     const menu = new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
@@ -147,6 +159,7 @@ try {
     });
   }
 
+  // ================= SELECT =================
   if (interaction.isStringSelectMenu()) {
 
     const type = interaction.values[0];
@@ -175,6 +188,7 @@ try {
     return interaction.showModal(modal);
   }
 
+  // ================= QUIZ =================
   if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
     const data = userData.get(interaction.user.id);
@@ -192,7 +206,7 @@ try {
     });
   }
 
-  // ================= FIX MINIMO BOTTONI STAFF =================
+  // ================= BOTTONI STAFF =================
   if (interaction.isButton()) {
 
     if (
@@ -218,14 +232,15 @@ try {
     }
   }
 
+  // ================= MOTIVO + EMBED ORDINATO =================
   if (
     interaction.isModalSubmit() &&
     interaction.customId.startsWith("motivo_")
   ) {
 
     const full = interaction.customId.replace("motivo_", "");
-
     const last = full.lastIndexOf("_");
+
     const action = full.slice(0, last);
     const id = full.slice(last + 1);
 
@@ -246,11 +261,12 @@ try {
       .setTitle(`📄 PATENTE ${decision}`)
       .setColor(decision === "APPROVATA" ? "Green" : "Red")
       .addFields(
-        { name: "👤 Utente", value: `<@${id}>` },
-        { name: "🚗 Patente", value: req.type },
-        { name: "📋 Quiz", value: qa.slice(0, 1024) },
-        { name: "📝 Motivo", value: reason },
-        { name: "👮 Staff", value: `<@${interaction.user.id}>` }
+        { name: "👤 Utente", value: `<@${id}>`, inline: false },
+        { name: "🚗 Patente", value: req.type, inline: true },
+        { name: "👮 Staff", value: `<@${interaction.user.id}>`, inline: true },
+        { name: "━━━━━━━━━━━━", value: " ", inline: false },
+        { name: "📋 Quiz", value: qa.slice(0, 1024), inline: false },
+        { name: "📝 Motivo decisione", value: reason, inline: false }
       )
       .setImage("attachment://pagamento.png");
 
@@ -302,40 +318,6 @@ try {
   });
 
   userData.delete(msg.author.id);
-
-  const qa = data.answers.map((a, i) =>
-    `**${QUESTIONS[data.type][i]}**\n${a}`
-  ).join("\n\n");
-
-  const embed = new EmbedBuilder()
-    .setTitle("📄 NUOVA RICHIESTA PATENTE")
-    .setDescription(`<@${msg.author.id}>`)
-    .addFields(
-      { name: "🚗 Patente", value: data.type },
-      { name: "📋 Domande e Risposte", value: qa.slice(0, 1024) },
-      { name: "📸 Stato", value: "Foto ricevuta ✔" }
-    )
-    .setImage("attachment://pagamento.png");
-
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`accetta_${msg.author.id}`)
-      .setLabel("ACCETTA")
-      .setStyle(ButtonStyle.Success),
-
-    new ButtonBuilder()
-      .setCustomId(`rifiuta_${msg.author.id}`)
-      .setLabel("RIFIUTA")
-      .setStyle(ButtonStyle.Danger)
-  );
-
-  const staff = await client.channels.fetch(CANALE_STAFF);
-
-  await staff.send({
-    embeds: [embed],
-    components: [row],
-    files: [{ attachment: buffer, name: "pagamento.png" }]
-  });
 
 } catch (err) {
   console.log(err);
