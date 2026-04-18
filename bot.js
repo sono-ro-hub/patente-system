@@ -303,9 +303,13 @@ const member = await guild.members.fetch(id).catch(() => null);
 
 const status = action === "accetta" ? "ACCETTATA" : "RIFIUTATA";
 
-// 🔥 elimina messaggio staff (quello con bottoni)
+// 🔥 FIX DEFINITIVO: elimina messaggio staff (sempre funzionante)
 try {
-  await interaction.message.delete().catch(() => null);
+  const channel = await client.channels.fetch(CANALE_STAFF).catch(() => null);
+  if (channel) {
+    const message = await channel.messages.fetch(req.messageId).catch(() => null);
+    if (message) await message.delete().catch(() => null);
+  }
 } catch (err) {
   console.log("Errore eliminazione modulo staff:", err);
 }
@@ -316,7 +320,6 @@ await member.roles.add(RUOLI[req.type]);
 
 const user = await client.users.fetch(id);
 
-// 📩 DM UTENTE
 await user.send({
 embeds: [
 new EmbedBuilder()
