@@ -66,7 +66,7 @@ function getServer(guildId) {
 return Object.values(SERVERS).find(s => s.GUILD_ID === guildId);
 }
 
-// ================= DESCRIZIONE COMPLETA ORIGINALE =================
+// ================= DESCRIZIONE COMPLETA =================
 const DESCRIPTION = `
 •  🏛️ Dipartimento Trasporti — Sud Italy RP
 
@@ -121,7 +121,8 @@ for (const server of Object.values(SERVERS)) {
       .setStyle(ButtonStyle.Primary)
   );
 
-  await ch.send({ embeds: [embed], components: [row] });
+  // 🔥 FIX ANTI CRASH
+  await ch.send({ embeds: [embed], components: [row] }).catch(() => {});
 }
 });
 
@@ -255,11 +256,11 @@ const staffChannel = await client.channels.fetch(server.CANALE_STAFF);
 const sent = await staffChannel.send({
 embeds: [embed],
 components: [row]
-});
+}).catch(() => {}); // 🔥 FIX ANTI CRASH
 
 pending.set(id, {
 ...data,
-messageId: sent.id
+messageId: sent?.id
 });
 
 userData.delete(id);
@@ -283,13 +284,12 @@ const member = await interaction.guild.members.fetch(id).catch(() => null);
 
 const status = action === "accetta" ? "ACCETTATA" : "RIFIUTATA";
 
-try {
-  const channel = await client.channels.fetch(server.CANALE_STAFF).catch(() => null);
-  if (channel) {
-    const message = await channel.messages.fetch(req.messageId).catch(() => null);
-    if (message) await message.delete().catch(() => null);
-  }
-} catch {}
+// 🔥 DELETE MODULO STAFF
+const channel = await client.channels.fetch(server.CANALE_STAFF).catch(() => null);
+if (channel && req.messageId) {
+  const message = await channel.messages.fetch(req.messageId).catch(() => null);
+  if (message) await message.delete().catch(() => {});
+}
 
 if (member && action === "accetta") {
 await member.roles.add(server.RUOLI[req.type]);
