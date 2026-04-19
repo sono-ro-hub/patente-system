@@ -27,15 +27,13 @@ GatewayIntentBits.GuildMembers
 ]
 });
 
-// ================= MULTI SERVER CONFIG =================
+// ================= SERVERS =================
 const SERVERS = {
 S1: {
 GUILD_ID: "1484912853126221896",
-
 CANALE_RICHIESTE: "1493595963942768860",
 CANALE_STAFF: "1493597555760824503",
 CANALE_FOTO: "1495160562097721634",
-
 RUOLI: {
 A: "1493609058438090773",
 B: "1493609132996165633",
@@ -45,11 +43,9 @@ CD: "1493609213086142645"
 
 S2: {
 GUILD_ID: "1402407968879808656",
-
 CANALE_RICHIESTE: "1495181447877886012",
 CANALE_STAFF: "1442639604611026997",
 CANALE_FOTO: "1495181979384025209",
-
 RUOLI: {
 A: "1448725161338470420",
 B: "1448725504470552708",
@@ -66,7 +62,7 @@ function getServer(guildId) {
 return Object.values(SERVERS).find(s => s.GUILD_ID === guildId);
 }
 
-// ================= DESCRIZIONE COMPLETA =================
+// ================= DESCRIPTION =================
 const DESCRIPTION = `
 •  🏛️ Dipartimento Trasporti — Sud Italy RP
 
@@ -96,33 +92,41 @@ Permette di guidare camion, pullman o autobus.
 ⚠️ Il mancato rispetto comporterà il rifiuto automatico della richiesta.
 `;
 
-// ================= DOMANDE =================
+// ================= QUESTIONS =================
 const QUESTIONS = {
 A: ["Casco obbligatorio in moto?","Fari accesi anche di giorno?","Rallentare in curva?","Guanti obbligatori?","Frenata su bagnato aumenta?"],
 B: ["Cintura sempre obbligatoria?","Limite urbano 50 km/h?","Sorpasso con linea continua?","Serve distanza di sicurezza?","Specchietti obbligatori?"],
 CD: ["Limite camion in città?","Cosa fai al rosso?","Precedenza incroci?","Quando usi anabbaglianti?","Ambulanza come comportarsi?"]
 };
 
-// ================= READY =================
+// ================= READY (FUNZIONA SU ENTRAMBI SERVER) =================
 client.once("ready", async () => {
+
 for (const server of Object.values(SERVERS)) {
 
-  const ch = await client.channels.fetch(server.CANALE_RICHIESTE).catch(() => null);
-  if (!ch) continue;
+  try {
+    const ch = await client.channels.fetch(server.CANALE_RICHIESTE).catch(() => null);
+    if (!ch) continue;
 
-  const embed = new EmbedBuilder()
-    .setColor("#0B1F3A")
-    .setDescription(DESCRIPTION);
+    const embed = new EmbedBuilder()
+      .setColor("#0B1F3A")
+      .setDescription(DESCRIPTION);
 
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("start")
-      .setLabel("INIZIA PATENTE")
-      .setStyle(ButtonStyle.Primary)
-  );
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("start")
+        .setLabel("INIZIA PATENTE")
+        .setStyle(ButtonStyle.Primary)
+    );
 
-  // 🔥 FIX ANTI CRASH
-  await ch.send({ embeds: [embed], components: [row] }).catch(() => {});
+    await ch.send({
+      embeds: [embed],
+      components: [row]
+    }).catch(() => {});
+
+  } catch (err) {
+    console.log("READY ERROR:", err);
+  }
 }
 });
 
@@ -159,6 +163,7 @@ if (interaction.isButton() && interaction.customId === "start") {
 
 // ================= SELECT =================
 if (interaction.isStringSelectMenu()) {
+
   const type = interaction.values[0];
 
   if (interaction.member.roles.cache.has(server.RUOLI[type])) {
@@ -190,6 +195,7 @@ if (interaction.isStringSelectMenu()) {
 
 // ================= QUIZ =================
 if (interaction.isModalSubmit() && interaction.customId === "quiz") {
+
   const data = userData.get(interaction.user.id);
   if (!data) return;
 
@@ -214,13 +220,17 @@ console.log(err);
 
 // ================= FOTO =================
 client.on("messageCreate", async (msg) => {
+
 if (msg.author.bot) return;
 
 const server = getServer(msg.guild.id);
 if (!server) return;
 
-const isForumThread = msg.channel.isThread?.() && msg.channel.parentId === server.CANALE_FOTO;
-const isNormalChannel = msg.channel.id === server.CANALE_FOTO;
+const isForumThread =
+msg.channel.isThread?.() && msg.channel.parentId === server.CANALE_FOTO;
+
+const isNormalChannel =
+msg.channel.id === server.CANALE_FOTO;
 
 if (!isForumThread && !isNormalChannel) return;
 
@@ -251,12 +261,13 @@ new ButtonBuilder().setCustomId(`accetta_${id}`).setLabel("ACCETTA").setStyle(Bu
 new ButtonBuilder().setCustomId(`rifiuta_${id}`).setLabel("RIFIUTA").setStyle(ButtonStyle.Danger)
 );
 
-const staffChannel = await client.channels.fetch(server.CANALE_STAFF);
+const staffChannel = await client.channels.fetch(server.CANALE_STAFF).catch(() => null);
+if (!staffChannel) return;
 
 const sent = await staffChannel.send({
 embeds: [embed],
 components: [row]
-}).catch(() => {}); // 🔥 FIX ANTI CRASH
+}).catch(() => null);
 
 pending.set(id, {
 ...data,
@@ -268,6 +279,7 @@ userData.delete(id);
 
 // ================= FINAL =================
 client.on("interactionCreate", async (interaction) => {
+
 if (!interaction.isModalSubmit()) return;
 if (!interaction.customId.startsWith("motivo_")) return;
 
@@ -286,6 +298,7 @@ const status = action === "accetta" ? "ACCETTATA" : "RIFIUTATA";
 
 // 🔥 DELETE MODULO STAFF
 const channel = await client.channels.fetch(server.CANALE_STAFF).catch(() => null);
+
 if (channel && req.messageId) {
   const message = await channel.messages.fetch(req.messageId).catch(() => null);
   if (message) await message.delete().catch(() => {});
