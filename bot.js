@@ -62,14 +62,14 @@ function getServer(guildId) {
 return Object.values(SERVERS).find(s => s.GUILD_ID === guildId);
 }
 
-// ================= DESCRIPTION =================
+// ================= DESCRIZIONE ORIGINALE =================
 const DESCRIPTION = `
 •  🏛️ Dipartimento Trasporti — Sud Italy RP
 
 Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
 
 ━━━━━━━━━━━━━━━━━━
-📋Tipi di patente
+📋 Tipi di patente
 
 🅰️ Patente A
 Consente la guida di motocicli e veicoli a due ruote.
@@ -81,7 +81,7 @@ Permette di guidare autovetture e veicoli leggeri.
 Permette di guidare camion, pullman o autobus.
 
 ━━━━━━━━━━━━━━━━━━
-📝Condizioni richieste
+📝 Condizioni richieste
 
 • Essere un cittadino registrato e approvato all’interno del server  
 • Avere un comportamento civile e rispettoso delle regole RP  
@@ -92,11 +92,54 @@ Permette di guidare camion, pullman o autobus.
 ⚠️ Il mancato rispetto comporterà il rifiuto automatico della richiesta.
 `;
 
+// ================= INFO PATENTE =================
+const INFO_EMBED = new EmbedBuilder()
+.setColor("#FFD700")
+.setTitle("📄 INFORMAZIONI PATENTE 📄")
+.setDescription(`
+__**INFORMAZIONI PATENTE**__
+
+***Ecco alcuni step per fare la patente in maniera corretta***
+
+**1)** Inviare il quiz per la patente che volete fare e attendere la correzione dello staff
+
+**2)** Inviare 3k in game all'id **Lessimanuardi123** e inviare la prova su **PAGAMENTI PATENTE**
+
+**3)** Durante i controlli FDO dovete fornire il nome Discord per verifica patente.  
+Senza patente → multa **1k**
+`);
+
+// ================= TABELLA BLU =================
+const BLUE_TABLE = new EmbedBuilder()
+.setColor("#1E90FF")
+.setTitle("📘 REGOLAMENTO PATENTE")
+.setDescription(`
+🏛️ Dipartimento Trasporti — Sud Italy RP
+
+━━━━━━━━━━━━━━━━━━
+📋 TIPI DI PATENTE
+
+🅰️ Patente A → Moto  
+🅱️ Patente B → Auto  
+🅲 Patente C-D → Mezzi pesanti  
+
+━━━━━━━━━━━━━━━━━━
+📝 REQUISITI
+
+• Cittadinanza attiva  
+• Comportamento RP corretto  
+• Nessuna sospensione  
+• Conoscenza codice stradale  
+
+━━━━━━━━━━━━━━━━━━
+⚠️ Violazioni = rifiuto automatico
+`);
+
 // ================= QUESTIONS =================
 const QUESTIONS = {
 A: ["Casco obbligatorio in moto?","Fari accesi anche di giorno?","Rallentare in curva?","Guanti obbligatori?","Frenata su bagnato aumenta?"],
-B: ["Cintura sempre obbligatoria?","Limite urbano 50 km/h?","Sorpasso con linea continua?","Serve distanza di sicurezza?","Specchietti obbligatori?"],
-CD: ["Limite camion in città?","Cosa fai al rosso?","Precedenza incroci?","Quando usi anabbaglianti?","Ambulanza come comportarsi?"]
+B: ["Cintura sempre obbligatoria?","Limite urbano 50 km/h?","Sorpasso con linea continua?","Distanza di sicurezza?","Specchietti obbligatori?"],
+CD: ["Limite camion in città?","Cosa fai al rosso?","Precedenza incroci?","Anabbaglianti quando?","Ambulanza comportamento?"]
 };
 
 // ================= READY =================
@@ -107,9 +150,8 @@ for (const server of Object.values(SERVERS)) {
   const ch = await client.channels.fetch(server.CANALE_RICHIESTE).catch(() => null);
   if (!ch) continue;
 
-  const embed = new EmbedBuilder()
-    .setColor("#0B1F3A")
-    .setDescription(DESCRIPTION);
+  await ch.send({ embeds: [INFO_EMBED] });
+  await ch.send({ embeds: [BLUE_TABLE] });
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -118,7 +160,7 @@ for (const server of Object.values(SERVERS)) {
       .setStyle(ButtonStyle.Primary)
   );
 
-  await ch.send({ embeds: [embed], components: [row] }).catch(() => {});
+  await ch.send({ embeds: [new EmbedBuilder().setDescription(DESCRIPTION)], components: [row] });
 }
 });
 
@@ -132,80 +174,80 @@ if (!server) return;
 // ================= START =================
 if (interaction.isButton() && interaction.customId === "start") {
 
-  await interaction.deferReply({ flags: 64 });
+await interaction.deferReply({ flags: 64 });
 
-  const member = interaction.member;
+const member = interaction.member;
 
-  const menu = new ActionRowBuilder().addComponents(
-    new StringSelectMenuBuilder()
-      .setCustomId("select")
-      .setPlaceholder("Seleziona patente")
-      .addOptions([
-        { label: member.roles.cache.has(server.RUOLI.A) ? "A (GIÀ POSSEDUTA)" : "Patente A", value: "A" },
-        { label: member.roles.cache.has(server.RUOLI.B) ? "B (GIÀ POSSEDUTA)" : "Patente B", value: "B" },
-        { label: member.roles.cache.has(server.RUOLI.CD) ? "C-D (GIÀ POSSEDUTA)" : "Patente C-D", value: "CD" }
-      ])
-  );
+const menu = new ActionRowBuilder().addComponents(
+new StringSelectMenuBuilder()
+.setCustomId("select")
+.setPlaceholder("Seleziona patente")
+.addOptions([
+{ label: member.roles.cache.has(server.RUOLI.A) ? "A (GIÀ)" : "Patente A", value: "A" },
+{ label: member.roles.cache.has(server.RUOLI.B) ? "B (GIÀ)" : "Patente B", value: "B" },
+{ label: member.roles.cache.has(server.RUOLI.CD) ? "C-D (GIÀ)" : "Patente C-D", value: "CD" }
+])
+);
 
-  return interaction.editReply({
-    content: "Seleziona patente:",
-    components: [menu]
-  });
+return interaction.editReply({
+content: "Seleziona patente:",
+components: [menu]
+});
 }
 
 // ================= SELECT =================
 if (interaction.isStringSelectMenu()) {
 
-  const type = interaction.values[0];
+const type = interaction.values[0];
 
-  if (interaction.member.roles.cache.has(server.RUOLI[type])) {
-    return interaction.reply({ content: "❌ Hai già questa patente", flags: 64 });
-  }
+if (interaction.member.roles.cache.has(server.RUOLI[type])) {
+return interaction.reply({ content: "❌ Hai già questa patente", flags: 64 });
+}
 
-  userData.set(interaction.user.id, { type });
+userData.set(interaction.user.id, { type });
 
-  const modal = new ModalBuilder()
-    .setCustomId("quiz")
-    .setTitle("Quiz Patente");
+const modal = new ModalBuilder()
+.setCustomId("quiz")
+.setTitle("Quiz Patente");
 
-  const q = QUESTIONS[type];
+const q = QUESTIONS[type];
 
-  for (let i = 0; i < 5; i++) {
-    modal.addComponents(
-      new ActionRowBuilder().addComponents(
-        new TextInputBuilder()
-          .setCustomId(`q${i}`)
-          .setLabel(q[i])
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true)
-      )
-    );
-  }
+for (let i = 0; i < 5; i++) {
+modal.addComponents(
+new ActionRowBuilder().addComponents(
+new TextInputBuilder()
+.setCustomId(`q${i}`)
+.setLabel(q[i])
+.setStyle(TextInputStyle.Short)
+.setRequired(true)
+)
+);
+}
 
-  return interaction.showModal(modal);
+return interaction.showModal(modal);
 }
 
 // ================= QUIZ =================
 if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
-  const data = userData.get(interaction.user.id);
-  if (!data) return;
+const data = userData.get(interaction.user.id);
+if (!data) return;
 
-  const answers = [];
-  for (let i = 0; i < 5; i++) {
-    answers.push(interaction.fields.getTextInputValue(`q${i}`));
-  }
-
-  data.answers = answers;
-  data.waitingPhoto = true;
-
-  return interaction.reply({
-    content: `📸 Invia la foto nel canale o forum <#${server.CANALE_FOTO}>`,
-    flags: 64
-  });
+const answers = [];
+for (let i = 0; i < 5; i++) {
+answers.push(interaction.fields.getTextInputValue(`q${i}`));
 }
 
-// ================= BUTTON ACCETTA / RIFIUTA =================
+data.answers = answers;
+data.waitingPhoto = true;
+
+return interaction.reply({
+content: `📸 Invia la foto nel canale <#${server.CANALE_FOTO}>`,
+flags: 64
+});
+}
+
+// ================= MOTIVO =================
 if (interaction.isButton()) {
 
 const [action, id] = interaction.customId.split("_");
@@ -214,21 +256,18 @@ if (!action || !id) return;
 const req = pending.get(id);
 if (!req) return;
 
-// 🔥 FIX INTERAZIONE NON RIUSCITA
-await interaction.deferUpdate();
-
 const modal = new ModalBuilder()
-  .setCustomId(`motivo_${action}_${id}`)
-  .setTitle("Motivo decisione");
+.setCustomId(`motivo_${action}_${id}`)
+.setTitle("Motivo decisione");
 
 modal.addComponents(
-  new ActionRowBuilder().addComponents(
-    new TextInputBuilder()
-      .setCustomId("reason")
-      .setLabel("Motivo")
-      .setStyle(TextInputStyle.Paragraph)
-      .setRequired(true)
-  )
+new ActionRowBuilder().addComponents(
+new TextInputBuilder()
+.setCustomId("reason")
+.setLabel("Motivo")
+.setStyle(TextInputStyle.Paragraph)
+.setRequired(true)
+)
 );
 
 return interaction.showModal(modal);
@@ -239,7 +278,7 @@ console.log(err);
 }
 });
 
-// ================= FOTO =================
+// ================= MESSAGE =================
 client.on("messageCreate", async (msg) => {
 
 if (msg.author.bot) return;
@@ -247,13 +286,10 @@ if (msg.author.bot) return;
 const server = getServer(msg.guild.id);
 if (!server) return;
 
-const isForumThread =
-msg.channel.isThread?.() && msg.channel.parentId === server.CANALE_FOTO;
+const isForum = msg.channel.isThread?.() && msg.channel.parentId === server.CANALE_FOTO;
+const isChannel = msg.channel.id === server.CANALE_FOTO;
 
-const isNormalChannel =
-msg.channel.id === server.CANALE_FOTO;
-
-if (!isForumThread && !isNormalChannel) return;
+if (!isForum && !isChannel) return;
 
 const data = userData.get(msg.author.id);
 if (!data || !data.waitingPhoto) return;
@@ -273,7 +309,7 @@ const embed = new EmbedBuilder()
 .addFields(
 { name: "👤 Utente", value: `<@${id}>` },
 { name: "🚗 Patente", value: data.type },
-{ name: "📋 Domande & Risposte", value: qa.slice(0, 1024) }
+{ name: "📋 Q&A", value: qa.slice(0, 1024) }
 )
 .setImage(attachment.url);
 
@@ -282,17 +318,14 @@ new ButtonBuilder().setCustomId(`accetta_${id}`).setLabel("ACCETTA").setStyle(Bu
 new ButtonBuilder().setCustomId(`rifiuta_${id}`).setLabel("RIFIUTA").setStyle(ButtonStyle.Danger)
 );
 
-const staffChannel = await client.channels.fetch(server.CANALE_STAFF).catch(() => null);
-if (!staffChannel) return;
+const staff = await client.channels.fetch(server.CANALE_STAFF).catch(() => null);
+if (!staff) return;
 
-const sent = await staffChannel.send({
-embeds: [embed],
-components: [row]
-}).catch(() => null);
+const sent = await staff.send({ embeds: [embed], components: [row] });
 
 pending.set(id, {
 ...data,
-messageId: sent?.id
+messageId: sent.id
 });
 
 userData.delete(id);
@@ -317,12 +350,11 @@ const member = await interaction.guild.members.fetch(id).catch(() => null);
 
 const status = action === "accetta" ? "ACCETTATA" : "RIFIUTATA";
 
-// DELETE MODULO STAFF
 const channel = await client.channels.fetch(server.CANALE_STAFF).catch(() => null);
 
 if (channel && req.messageId) {
-  const message = await channel.messages.fetch(req.messageId).catch(() => null);
-  if (message) await message.delete().catch(() => {});
+const msg = await channel.messages.fetch(req.messageId).catch(() => null);
+if (msg) await msg.delete().catch(() => {});
 }
 
 if (member && action === "accetta") {
