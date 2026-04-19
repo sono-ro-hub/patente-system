@@ -62,34 +62,33 @@ function getServer(guildId) {
 return Object.values(SERVERS).find(s => s.GUILD_ID === guildId);
 }
 
-// ================= DESCRIZIONE ORIGINALE =================
+// ================= DESCRIZIONE =================
 const DESCRIPTION = `
-•  🏛️ Dipartimento Trasporti — Sud Italy RP
+•  🏛️ Dipartimento Trasporti — __Sud Italy RP__
 
 Se desideri metterti alla guida in modo regolare, dovrai ottenere una licenza ufficiale rilasciata dal dipartimento.
 
 ━━━━━━━━━━━━━━━━━━
-📋 Tipi di patente
+📋Tipi di patente
+__🅰️ Patente A__
+Consente la guida di __motocicli__ e veicoli a due ruote.
 
-🅰️ Patente A
-Consente la guida di motocicli e veicoli a due ruote.
+__🅱️ Patente B__
+Permette di guidare __autovetture__ e veicoli leggeri. 
 
-🅱️ Patente B
-Permette di guidare autovetture e veicoli leggeri.
-
-🅲 Patente C-D
-Permette di guidare camion, pullman o autobus.
-
-━━━━━━━━━━━━━━━━━━
-📝 Condizioni richieste
-
-• Essere un cittadino registrato e approvato all’interno del server  
-• Avere un comportamento civile e rispettoso delle regole RP  
-• Non essere soggetto a sospensioni o provvedimenti attivi  
-• Dimostrare una conoscenza adeguata delle norme di circolazione  
+__🅲 Patente C-D__
+Permette di far guidare __camion__, __pullman__ o __autobus__, utili per il trasporto delle merci e delle persone.
 
 ━━━━━━━━━━━━━━━━━━
-⚠️ Il mancato rispetto comporterà il rifiuto automatico della richiesta.
+__📝Condizioni richieste__
+
+• Essere un __cittadino__ registrato e approvato all’interno del server  
+• Avere un __comportamento civile__ e rispettoso delle regole RP  
+• Non essere __soggetto__ a __sospensioni__ o provvedimenti attivi  
+• Dimostrare una __conoscenza adeguata__ delle norme di circolazione    
+
+━━━━━━━━━━━━━━━━━━
+⚠️ Il mancato rispetto dei requisiti comporterà il rifiuto automatico della richiesta.
 `;
 
 // ================= INFO PATENTE =================
@@ -101,9 +100,9 @@ __**INFORMAZIONI PATENTE**__
 
 ***Ecco alcuni step per fare la patente in maniera corretta***
 
-**1)** Inviare il quiz per la patente che volete fare e attendere la correzione dello staff
+**1)** Inviare il quiz per la patente che volete fare e attendere che lo staff member lo corregga
 
-**2)** Inviare 3k in game all'id **Lessimanuardi123** e inviare la prova su **PAGAMENTI PATENTE**
+**2)** Inviare 3k in game all'id **Lessimanuardi123** e inviare la foto su **PAGAMENTI PATENTE**
 
 **3)** Durante i controlli FDO dovete fornire il nome Discord per verifica patente.  
 Senza patente → multa **1k**
@@ -138,7 +137,7 @@ const BLUE_TABLE = new EmbedBuilder()
 // ================= QUESTIONS =================
 const QUESTIONS = {
 A: ["Casco obbligatorio in moto?","Fari accesi anche di giorno?","Rallentare in curva?","Guanti obbligatori?","Frenata su bagnato aumenta?"],
-B: ["Cintura sempre obbligatoria?","Limite urbano 50 km/h?","Sorpasso con linea continua?","Distanza di sicurezza?","Specchietti obbligatori?"],
+B: ["Cintura sempre obbligatoria?","Limite urbano 50 km/h?","Sorpasso con linea continua?","Distanza sicurezza?","Specchietti obbligatori?"],
 CD: ["Limite camion in città?","Cosa fai al rosso?","Precedenza incroci?","Anabbaglianti quando?","Ambulanza comportamento?"]
 };
 
@@ -152,6 +151,7 @@ for (const server of Object.values(SERVERS)) {
 
   await ch.send({ embeds: [INFO_EMBED] });
   await ch.send({ embeds: [BLUE_TABLE] });
+  await ch.send({ embeds: [new EmbedBuilder().setDescription(DESCRIPTION)] });
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -160,7 +160,7 @@ for (const server of Object.values(SERVERS)) {
       .setStyle(ButtonStyle.Primary)
   );
 
-  await ch.send({ embeds: [new EmbedBuilder().setDescription(DESCRIPTION)], components: [row] });
+  await ch.send({ components: [row] });
 }
 });
 
@@ -171,7 +171,7 @@ try {
 const server = getServer(interaction.guild.id);
 if (!server) return;
 
-// ================= START =================
+// START
 if (interaction.isButton() && interaction.customId === "start") {
 
 await interaction.deferReply({ flags: 64 });
@@ -195,7 +195,7 @@ components: [menu]
 });
 }
 
-// ================= SELECT =================
+// SELECT
 if (interaction.isStringSelectMenu()) {
 
 const type = interaction.values[0];
@@ -227,7 +227,7 @@ new TextInputBuilder()
 return interaction.showModal(modal);
 }
 
-// ================= QUIZ =================
+// QUIZ
 if (interaction.isModalSubmit() && interaction.customId === "quiz") {
 
 const data = userData.get(interaction.user.id);
@@ -247,7 +247,7 @@ flags: 64
 });
 }
 
-// ================= MOTIVO =================
+// MOTIVO BUTTON
 if (interaction.isButton()) {
 
 const [action, id] = interaction.customId.split("_");
@@ -278,7 +278,7 @@ console.log(err);
 }
 });
 
-// ================= MESSAGE =================
+// MESSAGE (MODULO STAFF)
 client.on("messageCreate", async (msg) => {
 
 if (msg.author.bot) return;
@@ -331,7 +331,7 @@ messageId: sent.id
 userData.delete(id);
 });
 
-// ================= FINAL =================
+// FINAL
 client.on("interactionCreate", async (interaction) => {
 
 if (!interaction.isModalSubmit()) return;
