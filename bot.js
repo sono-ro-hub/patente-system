@@ -99,34 +99,26 @@ B: ["Cintura sempre obbligatoria?","Limite urbano 50 km/h?","Sorpasso con linea 
 CD: ["Limite camion in città?","Cosa fai al rosso?","Precedenza incroci?","Quando usi anabbaglianti?","Ambulanza come comportarsi?"]
 };
 
-// ================= READY (FUNZIONA SU ENTRAMBI SERVER) =================
+// ================= READY =================
 client.once("ready", async () => {
 
 for (const server of Object.values(SERVERS)) {
 
-  try {
-    const ch = await client.channels.fetch(server.CANALE_RICHIESTE).catch(() => null);
-    if (!ch) continue;
+  const ch = await client.channels.fetch(server.CANALE_RICHIESTE).catch(() => null);
+  if (!ch) continue;
 
-    const embed = new EmbedBuilder()
-      .setColor("#0B1F3A")
-      .setDescription(DESCRIPTION);
+  const embed = new EmbedBuilder()
+    .setColor("#0B1F3A")
+    .setDescription(DESCRIPTION);
 
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("start")
-        .setLabel("INIZIA PATENTE")
-        .setStyle(ButtonStyle.Primary)
-    );
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("start")
+      .setLabel("INIZIA PATENTE")
+      .setStyle(ButtonStyle.Primary)
+  );
 
-    await ch.send({
-      embeds: [embed],
-      components: [row]
-    }).catch(() => {});
-
-  } catch (err) {
-    console.log("READY ERROR:", err);
-  }
+  await ch.send({ embeds: [embed], components: [row] }).catch(() => {});
 }
 });
 
@@ -213,6 +205,35 @@ if (interaction.isModalSubmit() && interaction.customId === "quiz") {
   });
 }
 
+// ================= BUTTON ACCETTA / RIFIUTA =================
+if (interaction.isButton()) {
+
+const [action, id] = interaction.customId.split("_");
+if (!action || !id) return;
+
+const req = pending.get(id);
+if (!req) return;
+
+// 🔥 FIX INTERAZIONE NON RIUSCITA
+await interaction.deferUpdate();
+
+const modal = new ModalBuilder()
+  .setCustomId(`motivo_${action}_${id}`)
+  .setTitle("Motivo decisione");
+
+modal.addComponents(
+  new ActionRowBuilder().addComponents(
+    new TextInputBuilder()
+      .setCustomId("reason")
+      .setLabel("Motivo")
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(true)
+  )
+);
+
+return interaction.showModal(modal);
+}
+
 } catch (err) {
 console.log(err);
 }
@@ -296,7 +317,7 @@ const member = await interaction.guild.members.fetch(id).catch(() => null);
 
 const status = action === "accetta" ? "ACCETTATA" : "RIFIUTATA";
 
-// 🔥 DELETE MODULO STAFF
+// DELETE MODULO STAFF
 const channel = await client.channels.fetch(server.CANALE_STAFF).catch(() => null);
 
 if (channel && req.messageId) {
