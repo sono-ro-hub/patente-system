@@ -66,7 +66,7 @@ function getServer(guildId) {
 return Object.values(SERVERS).find(s => s.GUILD_ID === guildId);
 }
 
-// ================= DESCRIZIONE =================
+// ================= DESCRIZIONE COMPLETA ORIGINALE =================
 const DESCRIPTION = `
 •  🏛️ Dipartimento Trasporti — Sud Italy RP
 
@@ -83,6 +83,17 @@ Permette di guidare autovetture e veicoli leggeri.
 
 🅲 Patente C-D
 Permette di guidare camion, pullman o autobus.
+
+━━━━━━━━━━━━━━━━━━
+📝Condizioni richieste
+
+• Essere un cittadino registrato e approvato all’interno del server  
+• Avere un comportamento civile e rispettoso delle regole RP  
+• Non essere soggetto a sospensioni o provvedimenti attivi  
+• Dimostrare una conoscenza adeguata delle norme di circolazione  
+
+━━━━━━━━━━━━━━━━━━
+⚠️ Il mancato rispetto comporterà il rifiuto automatico della richiesta.
 `;
 
 // ================= DOMANDE =================
@@ -248,39 +259,10 @@ components: [row]
 
 pending.set(id, {
 ...data,
-messageId: sent.id,
-guildId: msg.guild.id
+messageId: sent.id
 });
 
 userData.delete(id);
-});
-
-// ================= ACCETTA / RIFIUTA =================
-client.on("interactionCreate", async (interaction) => {
-if (!interaction.isButton()) return;
-
-const server = getServer(interaction.guild.id);
-if (!server) return;
-
-const [action, id] = interaction.customId.split("_");
-const req = pending.get(id);
-if (!req) return;
-
-const modal = new ModalBuilder()
-.setCustomId(`motivo_${action}_${id}`)
-.setTitle("Motivo decisione");
-
-modal.addComponents(
-new ActionRowBuilder().addComponents(
-new TextInputBuilder()
-.setCustomId("reason")
-.setLabel("Motivo")
-.setStyle(TextInputStyle.Paragraph)
-.setRequired(true)
-)
-);
-
-return interaction.showModal(modal);
 });
 
 // ================= FINAL =================
@@ -301,16 +283,13 @@ const member = await interaction.guild.members.fetch(id).catch(() => null);
 
 const status = action === "accetta" ? "ACCETTATA" : "RIFIUTATA";
 
-// 🔥 DELETE MODULO STAFF
 try {
   const channel = await client.channels.fetch(server.CANALE_STAFF).catch(() => null);
   if (channel) {
     const message = await channel.messages.fetch(req.messageId).catch(() => null);
     if (message) await message.delete().catch(() => null);
   }
-} catch (err) {
-  console.log(err);
-}
+} catch {}
 
 if (member && action === "accetta") {
 await member.roles.add(server.RUOLI[req.type]);
